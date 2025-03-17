@@ -1,0 +1,120 @@
+Tech Stack and Setup Guide for SST WebApp
+
+## Tech Stack Overview
+
+Our web application is built using the following technologies:
+
+### Frontend:
+
+- Framework: React (via Vite for fast development and hot module replacement)
+- Routing: React Router
+- Styling: CSS (index.css for global styles)
+- Package Manager: npm
+
+### Backend:
+
+- To Be Integrated (Currently frontend-focused, backend may be FastAPI or Node.js)
+
+### Database:
+
+- MongoDB (Planned for dynamic content storage)
+
+### Development Tools:
+
+- Code Editor: VS Code
+- Version Control: Git
+- Browser Developer Tools: Chrome DevTools
+- Build Tool: Vite
+
+---
+
+## Setup Instructions
+
+### 1. Install Required Software
+
+Ensure you have the following installed on your system:
+
+- Node.js (Download from https://nodejs.org/)
+- Git (Download from https://git-scm.com/)
+- VS Code (Recommended) or any other code editor
+
+### 2. Clone the Project Repository
+
+If using Git, clone the repository:
+
+```
+git clone https://github.com/your-repo/sst-webapp.git
+cd sst-webapp/frontend
+```
+
+### 3. Install Dependencies
+
+```
+npm install
+```
+
+### 4. Start the Development Server
+
+```
+npm run dev
+```
+
+This will start the server and provide a local URL (e.g., http://localhost:5173/).
+
+---
+
+## Debugging Common Issues
+
+### Issue: Styles Not Loading
+
+Fix: Ensure `index.css` is imported correctly in `main.jsx`:
+
+```
+import './index.css';
+```
+
+Then restart the server:
+
+```
+npm run dev
+```
+
+### Issue: "react-router-dom" Not Found
+
+Fix: Install React Router:
+
+```
+npm install react-router-dom
+```
+
+### Issue: "react-scripts is not recognized"
+
+Fix: Reinstall dependencies:
+
+```
+rm -rf node_modules package-lock.json
+npm install
+```
+
+### Issue: Vite Not Detecting Changes
+
+Fix: Clear Vite’s cache and restart:
+
+```
+rm -rf node_modules/.vite
+npm run dev
+```
+
+---
+
+## Next Steps
+
+- Backend Integration: Connect to MongoDB and set up API routes
+- Authentication: Implement user login/logout
+- UI Enhancements: Improve styling and user experience
+
+This document serves as a reference for onboarding new developers and troubleshooting common setup issues. If you encounter new errors, update this guide accordingly.
+
+---
+
+Author: SST WebApp Development Team
