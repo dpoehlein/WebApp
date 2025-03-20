@@ -1,4 +1,8 @@
 /* Inherit global styles */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
@@ -27,7 +31,8 @@ a:hover {
 
 /* Full-Width Body and Root */
 html, body, #root {
-  width: 100vw;
+  width: 100%;
+  min-width: 100vw;
   max-width: none;
   margin: 0;
   padding: 0;
@@ -35,6 +40,12 @@ html, body, #root {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+}
+
+#root {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Center page content */
