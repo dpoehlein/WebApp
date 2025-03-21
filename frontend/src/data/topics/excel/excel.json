@@ -1,0 +1,16 @@
+{
+    "title": "Excel",
+    "description": "Learn to use Microsoft Excel for engineering, calculations, and data visualization.",
+    "subtopics": [
+        {
+            "id": "formulas",
+            "title": "Excel Formulas",
+            "description": "Covers essential formulas for calculations in Excel."
+        },
+        {
+            "id": "graphs",
+            "title": "Graphs & Charts",
+            "description": "Learn to visualize data using charts in Excel."
+        }
+    ]
+}

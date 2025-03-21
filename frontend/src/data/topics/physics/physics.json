@@ -1,0 +1,16 @@
+{
+    "title": "Physics",
+    "description": "Covers fundamental physics concepts relevant to electronics and engineering.",
+    "subtopics": [
+        {
+            "id": "mechanics",
+            "title": "Mechanics",
+            "description": "Explores Newton’s laws, forces, motion, and energy."
+        },
+        {
+            "id": "electricity",
+            "title": "Electricity",
+            "description": "Covers Ohm's law, circuits, and electrical power concepts."
+        }
+    ]
+}
