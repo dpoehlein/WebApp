@@ -1,0 +1,44 @@
+{
+    "title": "Number Systems",
+    "description": "Learn binary, octal, hexadecimal, and more. Explore their conversions and applications in digital electronics.",
+    "learning_objectives": [
+      "Understand different number systems: binary, octal, decimal, hexadecimal",
+      "Convert numbers between different bases",
+      "Apply number systems in digital circuits"
+    ],
+    "subtopics": [
+      {
+        "id": "binary",
+        "title": "Binary Numbers",
+        "description": "Learn how binary numbers work and their role in computing."
+      },
+      {
+        "id": "octal",
+        "title": "Octal Numbers",
+        "description": "Understand how octal simplifies binary grouping in digital electronics."
+      },
+      {
+        "id": "hexadecimal",
+        "title": "Hexadecimal Numbers",
+        "description": "Understand base-16 number systems and conversions."
+      },
+      {
+        "id": "bcd",
+        "title": "Binary Coded Decimal (BCD)",
+        "description": "Explore how decimal numbers are represented in digital circuits."
+      },
+      {
+        "id": "gray_code",
+        "title": "Gray Code",
+        "description": "Learn about Gray Code and its applications in encoders."
+      }
+    ],
+    "lti_deep_links": [
+      {
+        "title": "Number Systems Quiz",
+        "url": "<LTI_LINK_NUMBER_SYSTEMS_QUIZ>",
+        "description": "Take a quiz to test your understanding of number systems."
+      }
+    ]
+  }
+  

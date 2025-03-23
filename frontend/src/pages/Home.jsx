@@ -1,7 +1,7 @@
 // src/pages/Home.jsx
-
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import Footer from "../components/Footer";
 import {
   FaMicrochip, FaCalculator, FaAtom, FaFileExcel, FaLaptopCode, FaServer,
   FaRobot, FaNetworkWired, FaCog, FaProjectDiagram, FaRulerCombined,
@@ -40,9 +40,9 @@ const Home = () => {
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-100">
-      {/* Banner */}
+      {/* ✅ Banner */}
       <header
-        className="w-full h-40 flex items-center justify-center text-white text-3xl font-bold shadow-md relative"
+        className="w-full h-44 flex items-center justify-center text-white text-3xl font-bold shadow-md relative"
         style={{
           backgroundImage: "url('/images/home/banner_home.jpg')",
           backgroundSize: "cover",
@@ -54,55 +54,34 @@ const Home = () => {
         <span className="relative z-10">Welcome to Smart Systems Technologies</span>
       </header>
 
-      {/* Breadcrumb Placeholder */}
+      {/* ✅ Breadcrumb */}
       <nav className="bg-gray-200 py-3 px-6 text-gray-700 text-sm shadow-sm">Home</nav>
 
-      {/* Main Content */}
-      <div className="w-full flex justify-center p-8">
-        <div className="w-full max-w-none flex flex-wrap justify-center gap-6 px-6">
-          <aside className="w-full md:w-3/4 lg:w-4/5 bg-white shadow-md p-6 rounded-lg">
-            <h2 className="text-lg font-semibold text-gray-800">Your Progress</h2>
-            <p className="text-gray-600">Track your learning journey here.</p>
-          </aside>
+      {/* ✅ Content */}
+      <main className="flex-1 w-full px-6 py-8 flex flex-col items-center gap-8">
+        <section className="w-full max-w-none bg-white shadow p-6 rounded-lg">
+          <h2 className="text-lg font-semibold text-gray-800">Your Progress</h2>
+          <p className="text-gray-600">Track your learning journey here.</p>
+        </section>
 
-          <main className="w-full md:w-3/4 lg:w-4/5 bg-white shadow-md p-6 rounded-lg border border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-800 mb-4 text-center">Topics</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {topics.map((topic, index) =>
-                topic.id ? (
-                  <Link
-                    key={index}
-                    to={`/topics/${topic.id}`}
-                    className="flex items-center justify-center gap-3 bg-white p-4 rounded-lg text-center font-medium 
-                    text-gray-700 shadow border border-gray-300 hover:bg-blue-500 hover:text-white transition-all duration-300"
-                  >
-                    {topic.icon} <span>{topic.name}</span>
-                  </Link>
-                ) : (
-                  <div
-                    key={index}
-                    className="flex items-center justify-center gap-3 bg-white p-4 rounded-lg text-center font-medium 
-                    text-gray-700 shadow border border-gray-300 opacity-60 cursor-not-allowed"
-                  >
-                    {topic.icon} <span>{topic.name}</span>
-                  </div>
-                )
-              )}
-            </div>
-          </main>
-        </div>
-      </div>
+        <section className="w-full max-w-none bg-white shadow p-6 rounded-lg border border-gray-200">
+          <h2 className="text-xl font-semibold text-gray-800 mb-4 text-center">Topics</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            {topics.map((topic, index) => (
+              <Link
+                key={index}
+                to={`/topics/${topic.id}`}
+                className="flex items-center justify-center gap-3 bg-white p-4 rounded-lg text-center font-medium \
+                text-gray-700 shadow border border-gray-300 hover:bg-blue-500 hover:text-white transition-all duration-300"
+              >
+                {topic.icon} <span>{topic.name}</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      </main>
 
-      {/* Footer */}
-      <footer className="bg-gray-800 text-white text-center py-4 mt-auto shadow-md">
-        &copy; {year}{" "}
-        <a
-          href="https://www.flcc.edu/academics/programs/smart-systems-technologies-aas/"
-          className="underline hover:text-gray-400"
-        >
-          FLCC Smart Systems Technologies
-        </a>
-      </footer>
+      <Footer />
     </div>
   );
 };

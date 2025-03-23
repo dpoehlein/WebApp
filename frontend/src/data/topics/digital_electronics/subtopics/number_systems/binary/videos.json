@@ -1,0 +1,15 @@
+{
+    "videos": [
+      {
+        "title": "Introduction to Binary Numbers",
+        "url": "https://www.youtube.com/watch?v=ZL0WkN2zlrk",
+        "description": "A simple intro to binary for beginners."
+      },
+      {
+        "title": "Binary Number System Explained",
+        "url": "https://www.youtube.com/watch?v=thrx3SBEpL8",
+        "description": "Dive deeper into binary logic and number conversion."
+      }
+    ]
+  }
+  

@@ -1,0 +1,17 @@
+{
+    "problems": [
+      {
+        "question": "Convert the decimal number 13 to binary.",
+        "answer": "1101"
+      },
+      {
+        "question": "What is 1011 in decimal?",
+        "answer": "11"
+      },
+      {
+        "question": "Add the binary numbers 1010 and 0011.",
+        "answer": "1101"
+      }
+    ]
+  }
+  

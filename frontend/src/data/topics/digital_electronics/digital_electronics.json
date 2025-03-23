@@ -2,77 +2,90 @@
     "title": "Digital Electronics",
     "description": "Explore foundational concepts in digital electronics including number systems, logic design, and circuit implementation.",
     "subtopics": [
-        {
-            "id": "number_systems",
-            "title": "Number Systems",
-            "description": "Covers binary, octal, hexadecimal, BCD, and gray code with conversion techniques and applications.",
-            "route": "/topics/digital_electronics/number_systems"
-        },
-        {
-            "id": "logic_gates",
-            "title": "Logic Gates",
-            "description": "Introduces basic and compound logic gates including AND, OR, NOT, NAND, NOR, XOR, and XNOR.",
-            "route": "/topics/digital_electronics/logic_gates"
-        },
-        {
-            "id": "boolean_algebra",
-            "title": "Boolean Algebra",
-            "description": "Teaches simplification techniques and theorems used in logic circuit design.",
-            "route": "/topics/digital_electronics/boolean_algebra"
-        },
-        {
-            "id": "karnaugh_maps",
-            "title": "Karnaugh Maps (K-Maps)",
-            "description": "Simplifies Boolean expressions using visual K-Map grouping techniques.",
-            "route": "/topics/digital_electronics/karnaugh_maps"
-        },
-        {
-            "id": "combinational_circuits",
-            "title": "Combinational Circuits",
-            "description": "Focuses on design and analysis of multiplexers, demultiplexers, encoders, decoders, and adders.",
-            "route": "/topics/digital_electronics/combinational_circuits"
-        },
-        {
-            "id": "sequential_circuits",
-            "title": "Sequential Circuits",
-            "description": "Explores flip-flops, counters, shift registers, and basic state machines.",
-            "route": "/topics/digital_electronics/sequential_circuits"
-        },
-        {
-            "id": "finite_state_machines",
-            "title": "Finite State Machines (FSMs)",
-            "description": "Covers Mealy and Moore state machines, state diagrams, and practical applications.",
-            "route": "/topics/digital_electronics/finite_state_machines"
-        },
-        {
-            "id": "memory_and_storage",
-            "title": "Memory and Storage",
-            "description": "Discusses RAM, ROM, EEPROM, and memory hierarchy in digital systems.",
-            "route": "/topics/digital_electronics/memory_and_storage"
-        },
-        {
-            "id": "digital_arithmetic",
-            "title": "Digital Arithmetic",
-            "description": "Explores binary addition, subtraction, multiplication, and division using logic circuits.",
-            "route": "/topics/digital_electronics/digital_arithmetic"
-        },
-        {
-            "id": "programmable_logic",
-            "title": "Programmable Logic Devices (PLDs)",
-            "description": "Introduces FPGA, CPLD, and PLD architectures for custom digital circuit design.",
-            "route": "/topics/digital_electronics/programmable_logic"
-        },
-        {
-            "id": "adc_dac",
-            "title": "Analog to Digital and Digital to Analog Conversion (ADC/DAC)",
-            "description": "Explains how digital systems interface with analog signals through ADCs and DACs.",
-            "route": "/topics/digital_electronics/adc_dac"
-        },
-        {
-            "id": "microcontrollers_basics",
-            "title": "Introduction to Microcontrollers",
-            "description": "Discusses how microcontrollers integrate digital electronics into embedded systems.",
-            "route": "/topics/digital_electronics/microcontrollers_basics"
-        }
+      {
+        "id": "number_systems",
+        "title": "Number Systems",
+        "description": "Covers binary, octal, hexadecimal, BCD, and gray code with conversion techniques and applications.",
+        "route": "/topics/digital_electronics/number_systems",
+        "icon": "MdNumbers"
+      },
+      {
+        "id": "logic_gates",
+        "title": "Logic Gates",
+        "description": "Introduces basic and compound logic gates including AND, OR, NOT, NAND, NOR, XOR, and XNOR.",
+        "route": "/topics/digital_electronics/logic_gates",
+        "icon": "GiCircuitry"
+      },
+      {
+        "id": "boolean_algebra",
+        "title": "Boolean Algebra",
+        "description": "Teaches simplification techniques and theorems used in logic circuit design.",
+        "route": "/topics/digital_electronics/boolean_algebra",
+        "icon": "BsFunction"
+      },
+      {
+        "id": "karnaugh_maps",
+        "title": "Karnaugh Maps (K-Maps)",
+        "description": "Simplifies Boolean expressions using visual K-Map grouping techniques.",
+        "route": "/topics/digital_electronics/karnaugh_maps",
+        "icon": "FaTh"
+      },
+      {
+        "id": "combinational_circuits",
+        "title": "Combinational Circuits",
+        "description": "Focuses on design and analysis of multiplexers, demultiplexers, encoders, decoders, and adders.",
+        "route": "/topics/digital_electronics/combinational_circuits",
+        "icon": "MdSettingsInputComposite"
+      },
+      {
+        "id": "sequential_circuits",
+        "title": "Sequential Circuits",
+        "description": "Explores flip-flops, counters, shift registers, and basic state machines.",
+        "route": "/topics/digital_electronics/sequential_circuits",
+        "icon": "BiTimeFive"
+      },
+      {
+        "id": "finite_state_machines",
+        "title": "Finite State Machines (FSMs)",
+        "description": "Covers Mealy and Moore state machines, state diagrams, and practical applications.",
+        "route": "/topics/digital_electronics/finite_state_machines",
+        "icon": "GiFlowChart"
+      },
+      {
+        "id": "memory_and_storage",
+        "title": "Memory and Storage",
+        "description": "Discusses RAM, ROM, EEPROM, and memory hierarchy in digital systems.",
+        "route": "/topics/digital_electronics/memory_and_storage",
+        "icon": "FaDatabase"
+      },
+      {
+        "id": "digital_arithmetic",
+        "title": "Digital Arithmetic",
+        "description": "Explores binary addition, subtraction, multiplication, and division using logic circuits.",
+        "route": "/topics/digital_electronics/digital_arithmetic",
+        "icon": "GiCalculator"
+      },
+      {
+        "id": "programmable_logic",
+        "title": "Programmable Logic Devices (PLDs)",
+        "description": "Introduces FPGA, CPLD, and PLD architectures for custom digital circuit design.",
+        "route": "/topics/digital_electronics/programmable_logic",
+        "icon": "SiXilinx"
+      },
+      {
+        "id": "adc_dac",
+        "title": "Analog to Digital and Digital to Analog Conversion (ADC/DAC)",
+        "description": "Explains how digital systems interface with analog signals through ADCs and DACs.",
+        "route": "/topics/digital_electronics/adc_dac",
+        "icon": "TbWaveSawTool"
+      },
+      {
+        "id": "microcontrollers_basics",
+        "title": "Introduction to Microcontrollers",
+        "description": "Discusses how microcontrollers integrate digital electronics into embedded systems.",
+        "route": "/topics/digital_electronics/microcontrollers_basics",
+        "icon": "FaMicrochip"
+      }
     ]
-}
+  }
+  
