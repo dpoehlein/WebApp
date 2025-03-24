@@ -1,0 +1,52 @@
+name: Deploy WebApp (Backend + Frontend)
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+    steps:
+      - name: ⬇️ Checkout repository
+        uses: actions/checkout@v3
+
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: 📦 Install backend dependencies
+        run: |
+          python -m venv venv
+          source venv/bin/activate
+          pip install --upgrade pip
+          pip install -r backend/requirements.txt
+
+      - name: 🧪 Run backend tests (optional)
+        run: |
+          echo "No backend tests yet"
+
+      - name: 🟩 Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: 📦 Install frontend dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: 🛠 Build frontend
+        run: |
+          cd frontend
+          npm run build
+
+      - name: 🚀 Deploy step placeholder
+        run: |
+          echo "Add your deployment script here (e.g., upload dist/ to Netlify)"
