@@ -1,14 +1,30 @@
 // src/pages/topics/NestedSubtopicPage.jsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import { useParams } from 'react-router-dom';
+
 import ContentContainer from "../../components/ContentContainer";
 import AIChatAssistant from "../../components/AIChatAssistant";
 import Breadcrumb from "../../components/Breadcrumb";
 import Footer from "../../components/Footer";
 import Banner from "../../components/Banner";
 
-const NestedSubtopicPage = () => {
-  const { topicId, subtopicId, nestedSubtopicId } = useParams();
+// Register walkthrough components per nestedSubtopicId
+const walkthroughComponents = {
+  binary: React.lazy(() => import('../../components/digital_electronics/number_systems/BinaryDemo')),
+  // Add more as needed, e.g.:
+  // octal: React.lazy(() => import(...))
+};
+
+const NestedSubtopicPage = ({
+  topicId: propTopicId,
+  subtopicId: propSubtopicId,
+  nestedSubtopicId: propNestedSubtopicId
+}) => {
+  const routeParams = useParams();
+  const topicId = propTopicId || routeParams.topicId;
+  const subtopicId = propSubtopicId || routeParams.subtopicId;
+  const nestedSubtopicId = propNestedSubtopicId || routeParams.nestedSubtopicId;
+
   const [subtopicData, setSubtopicData] = useState(null);
   const [practiceData, setPracticeData] = useState(null);
   const [videoData, setVideoData] = useState(null);
@@ -32,6 +48,8 @@ const NestedSubtopicPage = () => {
   const topicName = topicId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   const subtopicName = subtopicId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 
+  const WalkthroughComponent = walkthroughComponents[nestedSubtopicId] || null;
+
   return (
     <div className="flex flex-col min-h-screen bg-gray-100">
       <Banner
@@ -52,7 +70,7 @@ const NestedSubtopicPage = () => {
         <ContentContainer>
           <div className="flex flex-col lg:flex-row gap-8">
             <div className="w-full lg:w-1/2 space-y-6">
-              <p className="text-gray-700">{subtopicData.description}</p>
+              <p className="text-gray-700 text-lg font-medium">{subtopicData.description}</p>
 
               {subtopicData.learning_objectives && (
                 <div>
@@ -65,18 +83,27 @@ const NestedSubtopicPage = () => {
                 </div>
               )}
 
-              {practiceData && practiceData.problems && (
-                <div>
-                  <h2 className="text-lg font-semibold mb-2">Practice Problems</h2>
-                  <ul className="list-decimal list-inside space-y-2 text-gray-700">
-                    {practiceData.problems.map((prob, idx) => (
-                      <li key={idx}>
-                        <p className="font-medium">{prob.question}</p>
-                        <p className="text-sm text-gray-500">Answer: {prob.answer}</p>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+              {WalkthroughComponent ? (
+                <Suspense fallback={<div>Loading visual...</div>}>
+                  <div>
+                    <h2 className="text-lg font-semibold mb-2">How It Works</h2>
+                    <WalkthroughComponent />
+                  </div>
+                </Suspense>
+              ) : (
+                practiceData?.problems?.length > 0 && (
+                  <div>
+                    <h2 className="text-lg font-semibold mb-2">Practice Problems</h2>
+                    <ul className="list-decimal list-inside space-y-2 text-gray-700">
+                      {practiceData.problems.map((prob, idx) => (
+                        <li key={idx}>
+                          <p className="font-medium">{prob.question}</p>
+                          <p className="text-sm text-gray-500">Answer: {prob.answer}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )
               )}
 
               {videoData && videoData.videos && (

@@ -1,33 +1,26 @@
-// src/App.jsx
-
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Home from './pages/Home';
 import TopicPage from './pages/topics/TopicPage';
-import SubtopicPage from "./pages/topics/SubtopicPage";
-import NumberSystemsPage from './pages/topics/digital_electronics/subtopics/number_systems/number_systems';
-import NestedSubtopicPage from "./pages/topics/NestedSubtopicPage";
-
-
+import SubtopicPage from './pages/topics/SubtopicPage';
+import NestedSubtopicPage from './pages/topics/NestedSubtopicPage';
 
 function App() {
   return (
     <Router basename="/">
       <Routes>
-        {/* Home Page — shows all topic cards */}
+        {/* Home Page – lists all major topics */}
         <Route path="/" element={<Home />} />
 
-        {/* Topic-Level Page (e.g., /topics/digital_electronics) */}
+        {/* Topic-level route (e.g., /topics/digital_electronics) */}
         <Route path="/topics/:topicId" element={<TopicPage />} />
 
-        {/* Subtopic Page — dynamic route for ALL subtopics */}
-        <Route path="/topics/digital_electronics/number_systems" element={<NumberSystemsPage />} />
-
+        {/* Nested Subtopic route (e.g., /topics/digital_electronics/number_systems/binary) */}
         <Route path="/topics/:topicId/:subtopicId/:nestedSubtopicId" element={<NestedSubtopicPage />} />
 
-        {/* Fallback for all other subtopics */}
+        {/* Subtopic-level route (e.g., /topics/digital_electronics/number_systems) */}
         <Route path="/topics/:topicId/:subtopicId" element={<SubtopicPage />} />
 
-        {/* 404 Fallback */}
+        {/* 404 fallback */}
         <Route
           path="*"
           element={
