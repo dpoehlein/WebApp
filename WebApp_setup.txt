@@ -1,0 +1,145 @@
+# WebApp: AI-Driven Learning Platform
+
+This guide walks you through setting up and running the **WebApp** project on a new machine from a clean GitHub clone.
+
+---
+
+## 🚀 Features
+- FastAPI backend for AI chat, student progress, and database management
+- React + Vite frontend with live updates
+- MongoDB for data storage
+- OpenAI integration (GPT-4o)
+- Dual progress bar AI Assistant with quiz support
+
+---
+
+## 🔧 Prerequisites
+Before cloning and running the app, you must install the following:
+
+### ✅ 1. Python (Recommended: 3.11 or newer)
+[Download Python](https://www.python.org/downloads/) — make sure to check **"Add Python to PATH"** during installation.
+
+### ✅ 2. Node.js (Recommended: 18+)
+[Download Node.js](https://nodejs.org/en/download/) — includes `npm`.
+
+### ✅ 3. Git
+[Download Git](https://git-scm.com/downloads)
+
+### ✅ 4. Rust (required for Pydantic compilation)
+```powershell
+Invoke-WebRequest https://win.rustup.rs -UseBasicParsing | Invoke-Expression
+```
+Then follow the CLI instructions.
+
+---
+
+## 📦 Clone the Repository
+```powershell
+cd C:\SST
+git clone https://github.com/dpoehlein/WebApp.git
+cd WebApp
+```
+
+---
+
+## 🧠 Backend Setup (FastAPI + OpenAI)
+
+### ✅ 1. Create a Virtual Environment
+```powershell
+cd backend
+python -m venv venv
+```
+
+### ✅ 2. Activate Virtual Environment
+```powershell
+.\venv\Scripts\activate
+```
+
+### ✅ 3. Install Python Dependencies
+```powershell
+pip install -r requirements.txt
+```
+> If installation fails on `pydantic-core`, ensure Rust is installed and up to date.
+
+### ✅ 4. Add OpenAI Key
+Create a file at `WebApp/.env` with this content:
+```env
+OPENAI_API_KEY=sk-xxxxxxx
+```
+> Replace `sk-xxxxxxx` with your actual OpenAI secret key.
+
+### ✅ 5. Start the Backend Server
+From **`C:\SST\WebApp`** root (not `backend`):
+```powershell
+.\backend\venv\Scripts\activate
+uvicorn backend.main:app --reload
+```
+Your FastAPI backend will be live at:
+```
+http://localhost:8000
+```
+
+---
+
+## 🌐 Frontend Setup (React + Vite)
+
+### ✅ 1. Open a second terminal
+Launch a new terminal window **separate from the one running FastAPI**.
+
+### ✅ 2. Navigate to the frontend folder
+```powershell
+cd C:\SST\WebApp\frontend
+```
+
+### ✅ 3. Install Node Modules
+```powershell
+npm install
+```
+
+### ✅ 4. Run the React Dev Server
+```powershell
+npm run dev
+```
+Your React frontend will be available at:
+```
+http://localhost:5173
+```
+
+---
+
+## ✅ Summary of Terminal Setup
+
+### 🖥 Terminal 1: Backend
+```powershell
+cd C:\SST\WebApp
+.\backend\venv\Scripts\activate
+uvicorn backend.main:app --reload
+```
+
+### 🖥 Terminal 2: Frontend
+```powershell
+cd C:\SST\WebApp\frontend
+npm install  # first time only
+npm run dev
+```
+
+---
+
+## 💡 Tips
+- Make sure `.env` is in the **root** of the project (`WebApp/.env`)
+- If `uvicorn` fails to start due to `NoneType` API key, double-check the `.env` file
+- If `pydantic-core` fails to build, ensure Rust and Visual C++ Build Tools are installed
+- You can use `Ctrl+C` to stop each server (though `uvicorn --reload` may require multiple presses or closing the terminal)
+
+---
+
+## ✅ You're Ready!
+You should now be able to:
+- Interact with the AI Assistant on the frontend
+- See live responses powered by GPT-4o
+- Track progress through MongoDB
+
+Need help? Reach out to the dev team or open an issue on GitHub.
+
+Enjoy building with Smart Systems Technologies at FLCC 🚀
+

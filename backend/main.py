@@ -5,28 +5,34 @@ from bson import ObjectId
 
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import os
 from dotenv import load_dotenv
 from openai import OpenAI
+import os
 import json
+import traceback
 
-# Load environment variables (e.g., OpenAI API key)
-dotenv_path = os.path.join(os.path.dirname(__file__), ".env")
-load_dotenv(dotenv_path=dotenv_path)
-print("✅ Loaded OpenAI Key:", os.getenv("OPENAI_API_KEY")[:10] + "...")
+# Load .env
+load_dotenv()
 
-# Initialize OpenAI client (pass key explicitly)
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Safe check for API key
+api_key = os.getenv("OPENAI_API_KEY")
+if api_key:
+    print("✅ Loaded OpenAI Key:", api_key[:10] + "...")
+else:
+    print("❌ OPENAI_API_KEY not found in environment variables!")
 
-# Load topic-specific AI prompts from file
+# Initialize OpenAI client
+client = OpenAI(api_key=api_key)
+
+# Load AI prompts
 file_path = os.path.join(os.path.dirname(__file__), "data", "ai_prompts.json")
 with open(file_path, "r", encoding="utf-8") as f:
     SUBTOPIC_AI_PROMPTS = json.load(f)
 
-# Initialize FastAPI app
+# Init FastAPI
 app = FastAPI()
 
-# Allow requests from frontend during development
+# Enable CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],
@@ -35,24 +41,27 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Model for NestedSubtopicPage AI Assistant
+# Optional health check
+@app.get("/")
+async def root():
+    return {"status": "ok", "message": "FastAPI backend is running"}
+
+# AI Chat Model
 class ChatRequest(BaseModel):
     message: str
-    topic_id: str = "general"  # e.g., "binary"
-    history: list[dict] = []   # List of previous messages: [{"role": "user", "content": "..."}]
-
+    topic_id: str = "general"
+    history: list[dict] = []
 
 # Add a new student
 @app.post("/students/")
 async def create_student(student: Student):
-    existing_student = await students_collection.find_one({"email": student.email})
-    if existing_student:
+    existing = await students_collection.find_one({"email": student.email})
+    if existing:
         raise HTTPException(status_code=400, detail="Student already exists")
-
     result = await students_collection.insert_one(student.dict())
     return {"message": "Student added", "student_id": str(result.inserted_id)}
 
-# Get student progress
+# Get progress
 @app.get("/progress/{student_id}")
 async def get_progress(student_id: str):
     progress = await progress_collection.find_one({"student_id": student_id})
@@ -60,7 +69,7 @@ async def get_progress(student_id: str):
         raise HTTPException(status_code=404, detail="No progress found")
     return progress
 
-# Update student progress
+# Update progress
 @app.post("/progress/")
 async def update_progress(progress: Progress):
     await progress_collection.update_one(
@@ -74,18 +83,15 @@ async def update_progress(progress: Progress):
 @app.post("/chat")
 async def chat(request: ChatRequest):
     try:
-        # Get topic-specific system + initial messages
-        ai_prompts = SUBTOPIC_AI_PROMPTS.get(request.topic_id, SUBTOPIC_AI_PROMPTS["general"])
-        messages = [{"role": "system", "content": ai_prompts["system"]}]
+        prompts = SUBTOPIC_AI_PROMPTS.get(request.topic_id, SUBTOPIC_AI_PROMPTS["general"])
+        messages = [{"role": "system", "content": prompts["system"]}]
 
-        # If no history, preload initial assistant greeting
         if not request.history:
-            messages.append({"role": "assistant", "content": ai_prompts["initial"]})
+            messages.append({"role": "assistant", "content": prompts["initial"]})
         else:
             messages.extend(request.history)
             messages.append({"role": "user", "content": request.message})
 
-        # Send to OpenAI
         response = client.chat.completions.create(
             model="gpt-4o",
             messages=messages,
@@ -93,11 +99,11 @@ async def chat(request: ChatRequest):
             max_tokens=1000
         )
 
-        return {"reply": response.choices[0].message.content}
-    
+        reply = response.choices[0].message.content
+        print("🤖 AI Reply:", reply)
+        return {"reply": reply}
+
     except Exception as e:
-        import traceback
-        print("⚠️ Exception occurred in /chat endpoint:")
+        print("⚠️ Exception in /chat:")
         print(traceback.format_exc())
         return {"reply": f"⚠️ Error: {str(e)}"}
-

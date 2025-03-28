@@ -1,4 +1,3 @@
-// src/pages/topics/NestedSubtopicPage.jsx
 import React, { useEffect, useState, Suspense } from 'react';
 import { useParams } from 'react-router-dom';
 
@@ -8,11 +7,9 @@ import Breadcrumb from "../../components/Breadcrumb";
 import Footer from "../../components/Footer";
 import Banner from "../../components/Banner";
 
-// Register walkthrough components per nestedSubtopicId
 const walkthroughComponents = {
   binary: React.lazy(() => import('../../components/digital_electronics/number_systems/BinaryDemo')),
-  // Add more as needed, e.g.:
-  // octal: React.lazy(() => import(...))
+  // Add more as needed
 };
 
 const NestedSubtopicPage = ({
@@ -61,7 +58,7 @@ const NestedSubtopicPage = ({
         paths={[
           { label: "Home", to: "/" },
           { label: topicName, to: `/topics/${topicId}` },
-          { label: subtopicName, to: `/topics/${topicId}/${subtopicId}` },
+          { label: subtopicName, to: `/topics/${topicId}/subtopics/${subtopicId}` },
           { label: subtopicData.title }
         ]}
       />
@@ -69,6 +66,7 @@ const NestedSubtopicPage = ({
       <main className="flex-1 w-full px-6 py-8">
         <ContentContainer>
           <div className="flex flex-col lg:flex-row gap-8">
+            {/* Left Column */}
             <div className="w-full lg:w-1/2 space-y-6">
               <p className="text-gray-700 text-lg font-medium">{subtopicData.description}</p>
 
@@ -90,23 +88,21 @@ const NestedSubtopicPage = ({
                     <WalkthroughComponent />
                   </div>
                 </Suspense>
-              ) : (
-                practiceData?.problems?.length > 0 && (
-                  <div>
-                    <h2 className="text-lg font-semibold mb-2">Practice Problems</h2>
-                    <ul className="list-decimal list-inside space-y-2 text-gray-700">
-                      {practiceData.problems.map((prob, idx) => (
-                        <li key={idx}>
-                          <p className="font-medium">{prob.question}</p>
-                          <p className="text-sm text-gray-500">Answer: {prob.answer}</p>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )
-              )}
+              ) : practiceData?.problems?.length > 0 ? (
+                <div>
+                  <h2 className="text-lg font-semibold mb-2">Practice Problems</h2>
+                  <ul className="list-decimal list-inside space-y-2 text-gray-700">
+                    {practiceData.problems.map((prob, idx) => (
+                      <li key={idx}>
+                        <p className="font-medium">{prob.question}</p>
+                        <p className="text-sm text-gray-500">Answer: {prob.answer}</p>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
 
-              {videoData && videoData.videos && (
+              {videoData?.videos && (
                 <div>
                   <h2 className="text-lg font-semibold mb-2">Recommended Videos</h2>
                   <ul className="space-y-3">
@@ -129,6 +125,7 @@ const NestedSubtopicPage = ({
               )}
             </div>
 
+            {/* Right Column: AI Assistant */}
             <div className="w-full lg:w-1/2">
               <AIChatAssistant topicId={nestedSubtopicId} />
             </div>

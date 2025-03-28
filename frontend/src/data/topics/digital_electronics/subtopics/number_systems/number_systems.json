@@ -3,41 +3,46 @@
     "description": "Learn binary, octal, hexadecimal, and more. Explore their conversions and applications in digital electronics.",
     "learning_objectives": [
       "Understand different number systems: binary, octal, decimal, hexadecimal",
-      "Convert numbers between different bases",
-      "Apply number systems in digital circuits"
+      "Convert numbers between different bases"
     ],
+    "subtopics_title": "Explore Number Systems",
     "subtopics": [
       {
         "id": "binary",
         "title": "Binary Numbers",
-        "description": "Learn how binary numbers work and their role in computing."
+        "description": "Learn how binary numbers work and their role in computing.",
+        "icon": "Bs123"
       },
       {
         "id": "octal",
         "title": "Octal Numbers",
-        "description": "Understand how octal simplifies binary grouping in digital electronics."
+        "description": "Understand how octal simplifies binary grouping in digital electronics.",
+        "icon": "BsCircleHalf"
       },
       {
         "id": "hexadecimal",
         "title": "Hexadecimal Numbers",
-        "description": "Understand base-16 number systems and conversions."
+        "description": "Understand base-16 number systems and conversions.",
+        "icon": "BsHexagonHalf"
       },
       {
         "id": "bcd",
         "title": "Binary Coded Decimal (BCD)",
-        "description": "Explore how decimal numbers are represented in digital circuits."
+        "description": "Explore how decimal numbers are represented in digital circuits.",
+        "icon": "BsCalculator"
       },
       {
         "id": "gray_code",
         "title": "Gray Code",
-        "description": "Learn about Gray Code and its applications in encoders."
+        "description": "Learn about Gray Code and its applications in encoders.",
+        "icon": "BsCodeSlash"
       }
     ],
     "lti_deep_links": [
       {
-        "title": "Number Systems Quiz",
-        "url": "<LTI_LINK_NUMBER_SYSTEMS_QUIZ>",
-        "description": "Take a quiz to test your understanding of number systems."
+        "title": "Number Systems Assignment",
+        "url": "/assignments/number_systems",
+        "description": "Download an Excel file and use the AI Assistant to get immediate feedback while completing the assignment."
       }
     ]
   }
