@@ -1,17 +1,11 @@
-// src/pages/topics/TopicPage.jsx
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 
-import digitalElectronics from '../../data/topics/digital_electronics/digital_electronics.json';
 import DynamicIcon from '../../components/DynamicIcon';
 import ContentContainer from '../../components/ContentContainer';
 import Breadcrumb from '../../components/Breadcrumb';
 import Footer from '../../components/Footer';
 import Banner from '../../components/Banner';
-
-const topicMap = {
-  digital_electronics: digitalElectronics,
-};
 
 const TopicPage = () => {
   const { topicId } = useParams();
@@ -19,13 +13,17 @@ const TopicPage = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const selected = topicMap[topicId];
-    if (selected) {
-      setTopic(selected);
-    } else {
-      setTopic(null);
-    }
-    setLoading(false);
+    fetch(`/data/topics/${topicId}/${topicId}.json`)
+      .then(res => res.json())
+      .then(data => {
+        setTopic(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error("Error loading topic data:", err);
+        setTopic(null);
+        setLoading(false);
+      });
   }, [topicId]);
 
   if (loading) return <div className="p-8 text-gray-600">Loading...</div>;
@@ -80,3 +78,4 @@ const TopicPage = () => {
 };
 
 export default TopicPage;
+

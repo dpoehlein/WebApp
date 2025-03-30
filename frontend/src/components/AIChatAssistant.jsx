@@ -1,44 +1,38 @@
-// src/components/AIChatAssistant.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import ReactMarkdown from 'react-markdown';
+import welcomeMessages from '../data/ai/welcomeMessages';
+import learningObjectives from '../data/ai/learningObjectives';
 
 const AIChatAssistant = ({ topicId = "general" }) => {
   const [input, setInput] = useState('');
   const [chat, setChat] = useState([]);
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [mode, setMode] = useState(null); // "explain", "practice", "quiz"
+  const [mode, setMode] = useState(null);
   const [awaitingAnswer, setAwaitingAnswer] = useState(false);
-  const chatEndRef = useRef(null);
+  const chatContainerRef = useRef(null);
 
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chat, loading]);
+  const formattedTitle = topicId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 
-  const welcomeMessage = `👋 Welcome! I'm your AI Assistant here to help you master Binary Numbers.
+  const welcomeMessageFn = welcomeMessages[topicId];
+  const objectives = learningObjectives[topicId] || [];
 
-You can choose how you’d like to get started:
-
-1️⃣ **Explain Binary Numbers** – I’ll walk you through the concept step by step.  
-2️⃣ **Give Me a Practice Problem** – Try solving a binary conversion with my help.  
-3️⃣ **Quiz Me** – I’ll generate a quick challenge to test your knowledge.
-
-📊 I’ll monitor your progress toward completion as you answer questions in this chat.  
-Ready when you are — just click an option or ask me anything!`;
+  const welcomeMessage = typeof welcomeMessageFn === 'function'
+    ? welcomeMessageFn(formattedTitle)
+    : welcomeMessages['general'](formattedTitle);
 
   useEffect(() => {
     if (chat.length === 0) {
-      const botReply = { role: 'assistant', content: welcomeMessage };
-      setChat([botReply]);
+      setChat([{ role: 'assistant', content: welcomeMessage }]);
     }
   }, [chat]);
 
-  const handleOptionClick = async (option, selectedMode) => {
-    setMode(selectedMode);
-    setAwaitingAnswer(selectedMode === 'quiz');
-    await sendMessage(option);
-  };
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  }, [chat, loading]);
 
   const sendMessage = async (customMessage = null) => {
     const messageToSend = customMessage || input;
@@ -54,7 +48,8 @@ Ready when you are — just click an option or ask me anything!`;
       const res = await axios.post('http://localhost:8000/chat', {
         message: messageToSend,
         topic_id: topicId,
-        history: updatedChat
+        history: updatedChat,
+        objectives: objectives
       });
 
       const botReply = { role: 'assistant', content: res.data.reply };
@@ -68,12 +63,13 @@ Ready when you are — just click an option or ask me anything!`;
           const nextPrompt = "Next question, please.";
           const nextMessage = { role: 'user', content: nextPrompt };
           const nextChat = [...updatedChat, botReply, nextMessage];
-          setChat([...nextChat]);
+          setChat(nextChat);
 
           const nextRes = await axios.post('http://localhost:8000/chat', {
             message: nextPrompt,
             topic_id: topicId,
-            history: nextChat
+            history: nextChat,
+            objectives: objectives
           });
 
           const nextReply = { role: 'assistant', content: nextRes.data.reply };
@@ -97,9 +93,8 @@ Ready when you are — just click an option or ask me anything!`;
   };
 
   return (
-    <div className="border-t pt-6 mt-8">
-      {/* Header with Top Progress Bar */}
-      <div className="flex items-center justify-between mb-3">
+    <div className="min-h-[95vh] max-h-[120vh] flex flex-col bg-gray-50 rounded shadow">
+      <div className="flex items-center justify-between px-4 mb-2">
         <h3 className="text-lg font-semibold text-gray-800">Ask the AI Assistant</h3>
         <div className="w-40 h-2 bg-gray-200 rounded-full relative">
           <div
@@ -109,59 +104,36 @@ Ready when you are — just click an option or ask me anything!`;
         </div>
       </div>
 
-      {/* Assistant Container */}
-      <div className="border rounded p-4 bg-gray-50 h-[85vh] flex flex-col">
-        {/* Scrollable Chat Window */}
-        <div className="flex-1 overflow-y-auto mb-4 space-y-2">
-          {chat.map((msg, idx) => (
-            <div key={idx} className={`text-sm ${msg.role === 'user' ? 'text-right' : 'text-left'}`}>
-              <div className={`inline-block px-3 py-2 rounded text-left max-w-full prose prose-sm ${
-                msg.role === 'user' ? 'bg-blue-200' : 'bg-gray-200'
-              }`}>
-                <ReactMarkdown>{msg.content}</ReactMarkdown>
-              </div>
-            </div>
-          ))}
-          {loading && <div className="text-center text-gray-500">Thinking...</div>}
-          <div ref={chatEndRef} />
-        </div>
-
-        {/* Initial Option Buttons */}
+      <div
+        ref={chatContainerRef}
+        className="flex-1 overflow-y-auto px-4 pb-4 space-y-2"
+      >
         {chat.length <= 1 && (
-          <div className="flex flex-col gap-2 mb-4">
-            <button
-              onClick={() => handleOptionClick("Explain Binary Numbers", "explain")}
-              className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-            >
-              Explain Binary Numbers
-            </button>
-            <button
-              onClick={() => handleOptionClick("Give Me a Practice Problem", "practice")}
-              className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
-            >
-              Give Me a Practice Problem
-            </button>
-            <button
-              onClick={() => handleOptionClick("Quiz Me", "quiz")}
-              className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600"
-            >
-              Quiz Me
-            </button>
+          <div className="bg-gray-200 p-4 rounded-md shadow-sm">
+            <ReactMarkdown>{welcomeMessage}</ReactMarkdown>
           </div>
         )}
 
-        {/* Bottom Progress Bar */}
-        <div className="mb-2">
-          <div className="text-sm text-gray-600 mb-1">Your Progress</div>
-          <div className="w-full h-2 bg-gray-200 rounded-full relative">
-            <div
-              className="absolute top-0 left-0 h-2 bg-green-500 rounded-full transition-all duration-500"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        </div>
+        {chat.map((msg, idx) =>
+          (idx === 0 && msg.content === welcomeMessage) ? null : (
+            <div key={idx} className={`text-sm ${msg.role === 'user' ? 'text-right' : 'text-left'}`}>
+              <div className={`inline-block px-3 py-2 rounded text-left max-w-full ${msg.role === 'user' ? 'bg-blue-200' : 'bg-gray-200'}`}>
+                <ReactMarkdown>{msg.content}</ReactMarkdown>
+              </div>
+            </div>
+          )
+        )}
+        {loading && <div className="text-center text-gray-500">Thinking...</div>}
+      </div>
 
-        {/* Input Field */}
+      <div className="p-4 border-t bg-white">
+        <div className="text-sm text-gray-600 mb-1">Your Progress</div>
+        <div className="w-full h-2 bg-gray-200 rounded-full mb-3">
+          <div
+            className="h-2 bg-green-500 rounded-full transition-all duration-500"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
         <div className="flex gap-2">
           <input
             type="text"

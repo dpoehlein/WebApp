@@ -20,7 +20,8 @@ const BinaryDemo = () => {
 
   const initialize = () => {
     const newDecimal = getRandomDecimal();
-    const newBinary = formatTo4Bit(newDecimal % 16); // Limit to 4-bit value
+    const fullBinary = formatTo8Bit(newDecimal);
+    const newBinary = fullBinary.slice(-4); // Last 4 bits (non-zero due to range)
 
     setDecimal(newDecimal);
     setBinary(newBinary);
@@ -72,7 +73,7 @@ const BinaryDemo = () => {
       const timer = setTimeout(() => {
         setDecBinary((prev) => [decSteps[decIndex].bit, ...prev]);
         setDecIndex((prev) => prev + 1);
-      }, 800);
+      }, 1200); //Set speed of steps for Decimal to Binary Conversion
       return () => clearTimeout(timer);
     }
   }, [decIndex, decSteps]);
@@ -80,12 +81,28 @@ const BinaryDemo = () => {
   useEffect(() => {
     const loop = setTimeout(() => {
       initialize();
-    }, 12000);
+    }, 18000);
     return () => clearTimeout(loop);
   }, [currentStep]);
 
   return (
-    <div className="p-4 bg-white rounded shadow border max-w-xl mx-auto mb-8 space-y-10">
+    <div className="p-4 bg-white rounded shadow border w-full mb-8 space-y-10">
+
+      {/* 💡 Educational Overview */}
+      <div className="space-y-4 text-gray-700 text-base leading-relaxed mb-6">
+        <p>
+          This demo walks you through how binary numbers are converted to decimal, and how decimal numbers are converted to binary.
+        </p>
+        <p>
+          A <strong>bit</strong> (short for <em>binary digit</em>) is the smallest unit of data in computing, represented as a 0 or 1.
+          A group of 4 bits is called a <strong>nibble</strong>, and a group of 8 bits is called a <strong>byte</strong>.
+        </p>
+        <p>
+          In binary, the <strong>Least Significant Bit (LSB)</strong> is on the right (2⁰), and the <strong>Most Significant Bit (MSB)</strong> is on the left.
+          As we convert between decimal and binary, we’ll see how each bit represents a power of two.
+        </p>
+      </div>
+
       {/* Binary to Decimal */}
       <div>
         <h2 className="text-xl font-bold mb-4 text-center text-blue-700">
@@ -124,9 +141,13 @@ const BinaryDemo = () => {
           Decimal to Binary Conversion: {decimal}
         </h2>
         <div className="text-center text-gray-700 mb-4">
-          Divide the number by 2 and track the remainders:
+          Divide the number by 2 and track the remainders:<br />
+          <span className="text-sm text-gray-500">
+            (Note: steps are listed starting from <strong>LSB</strong> to <strong>MSB</strong>)
+          </span>
         </div>
-        <div className="min-h-[220px] flex flex-col justify-start space-y-2 text-center transition-all duration-500">
+
+        <div className="min-h-[280px] flex flex-col justify-start space-y-2 text-center transition-all duration-500">
           {decSteps.slice(0, decIndex).map((step, idx) => (
             <div key={idx} className="text-sm font-mono">
               {step.number} ÷ 2 = {Math.floor(step.number / 2)} with remainder{' '}

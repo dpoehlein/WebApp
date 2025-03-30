@@ -12,9 +12,10 @@ const SubtopicPage = () => {
   const [subtopicData, setSubtopicData] = useState(null);
 
   useEffect(() => {
-    import(`../../data/topics/${topicId}/subtopics/${subtopicId}/${subtopicId}.json`)
-      .then((res) => setSubtopicData(res.default))
-      .catch((err) => {
+    fetch(`/data/topics/${topicId}/subtopics/${subtopicId}/${subtopicId}.json`)
+      .then(res => res.json())
+      .then(data => setSubtopicData(data))
+      .catch(err => {
         console.error("Error loading subtopic:", err);
         setSubtopicData(null);
       });
@@ -67,8 +68,9 @@ const SubtopicPage = () => {
                     id={sub.id}
                     title={sub.title}
                     description={sub.description}
-                    icon={sub.icon} // Assuming each subtopic has an icon property
                     parentId={subtopicId}
+                    topicId={topicId}
+                    icon={sub.icon} // Assuming each subtopic has an icon property
                   />
                 ))}
               </div>

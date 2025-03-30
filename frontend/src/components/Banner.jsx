@@ -1,10 +1,10 @@
 // Banner.jsx
 import React from 'react';
 
-const Banner = ({ title, background }) => {
+const Banner = ({ title, background, height = "h-52" }) => {
   return (
     <div
-      className="relative w-full h-52 flex items-center justify-center text-white text-3xl font-bold shadow-md"
+      className={`relative w-full ${height} flex items-center justify-center text-white text-3xl font-bold shadow-md`}
       style={{
         backgroundImage: `url(${background})`,
         backgroundSize: 'cover',
@@ -19,3 +19,4 @@ const Banner = ({ title, background }) => {
 };
 
 export default Banner;
+

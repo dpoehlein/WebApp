@@ -1,3 +1,4 @@
+// src/pages/topics/NestedSubtopicPage.jsx
 import React, { useEffect, useState, Suspense } from 'react';
 import { useParams } from 'react-router-dom';
 
@@ -7,9 +8,11 @@ import Breadcrumb from "../../components/Breadcrumb";
 import Footer from "../../components/Footer";
 import Banner from "../../components/Banner";
 
+import learningObjectives from '../../data/ai/learningObjectives';
+
 const walkthroughComponents = {
   binary: React.lazy(() => import('../../components/digital_electronics/number_systems/BinaryDemo')),
-  // Add more as needed
+  // Add more walkthrough components here
 };
 
 const NestedSubtopicPage = ({
@@ -28,14 +31,14 @@ const NestedSubtopicPage = ({
 
   useEffect(() => {
     Promise.all([
-      import(`../../data/topics/${topicId}/subtopics/${subtopicId}/${nestedSubtopicId}/subtopic.json`),
-      import(`../../data/topics/${topicId}/subtopics/${subtopicId}/${nestedSubtopicId}/practice.json`),
-      import(`../../data/topics/${topicId}/subtopics/${subtopicId}/${nestedSubtopicId}/videos.json`)
+      fetch(`/data/topics/${topicId}/subtopics/${subtopicId}/${nestedSubtopicId}/subtopic.json`).then(res => res.json()),
+      fetch(`/data/topics/${topicId}/subtopics/${subtopicId}/${nestedSubtopicId}/practice.json`).then(res => res.json()),
+      fetch(`/data/topics/${topicId}/subtopics/${subtopicId}/${nestedSubtopicId}/videos.json`).then(res => res.json())
     ])
       .then(([subtopicRes, practiceRes, videoRes]) => {
-        setSubtopicData(subtopicRes.default);
-        setPracticeData(practiceRes.default);
-        setVideoData(videoRes.default);
+        setSubtopicData(subtopicRes);
+        setPracticeData(practiceRes);
+        setVideoData(videoRes);
       })
       .catch((err) => console.error("Failed to load nested subtopic data:", err));
   }, [topicId, subtopicId, nestedSubtopicId]);
@@ -46,12 +49,14 @@ const NestedSubtopicPage = ({
   const subtopicName = subtopicId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 
   const WalkthroughComponent = walkthroughComponents[nestedSubtopicId] || null;
+  const objectives = learningObjectives[nestedSubtopicId] || [];
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-100">
       <Banner
         title={subtopicData.title}
         background={`/images/${topicId}/banner.jpg`}
+        height="h-36"
       />
 
       <Breadcrumb
@@ -63,76 +68,76 @@ const NestedSubtopicPage = ({
         ]}
       />
 
-      <main className="flex-1 w-full px-6 py-8">
-        <ContentContainer>
-          <div className="flex flex-col lg:flex-row gap-8">
-            {/* Left Column */}
-            <div className="w-full lg:w-1/2 space-y-6">
-              <p className="text-gray-700 text-lg font-medium">{subtopicData.description}</p>
+      {/* Main content and AI side-by-side */}
+      <main className="flex-1 w-full px-6 py-8 flex flex-col lg:flex-row gap-6">
+        {/* Left Column - Content */}
+        <div className="w-full lg:w-1/2 overflow-y-auto pr-2">
+          <ContentContainer className="max-w-none">
+            <p className="text-gray-700 text-lg font-medium">
+              {subtopicData.description}
+            </p>
 
-              {subtopicData.learning_objectives && (
-                <div>
-                  <h2 className="text-lg font-semibold mb-2">Learning Objectives</h2>
-                  <ul className="list-disc list-inside text-gray-700">
-                    {subtopicData.learning_objectives.map((obj, idx) => (
-                      <li key={idx}>{obj}</li>
-                    ))}
-                  </ul>
+            {objectives.length > 0 && (
+              <div className="mt-4">
+                <h2 className="text-lg font-semibold mb-2">Learning Objectives</h2>
+                <ul className="list-disc list-inside text-gray-700">
+                  {objectives.map((obj, idx) => (
+                    <li key={idx}>{obj}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {WalkthroughComponent ? (
+              <Suspense fallback={<div>Loading visual...</div>}>
+                <div className="mt-6">
+                  <h2 className="text-lg font-semibold mb-2">How It Works</h2>
+                  <WalkthroughComponent />
                 </div>
-              )}
+              </Suspense>
+            ) : practiceData?.problems?.length > 0 ? (
+              <div className="mt-6">
+                <h2 className="text-lg font-semibold mb-2">Practice Problems</h2>
+                <ul className="list-decimal list-inside space-y-2 text-gray-700">
+                  {practiceData.problems.map((prob, idx) => (
+                    <li key={idx}>
+                      <p className="font-medium">{prob.question}</p>
+                      <p className="text-sm text-gray-500">Answer: {prob.answer}</p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
 
-              {WalkthroughComponent ? (
-                <Suspense fallback={<div>Loading visual...</div>}>
-                  <div>
-                    <h2 className="text-lg font-semibold mb-2">How It Works</h2>
-                    <WalkthroughComponent />
-                  </div>
-                </Suspense>
-              ) : practiceData?.problems?.length > 0 ? (
-                <div>
-                  <h2 className="text-lg font-semibold mb-2">Practice Problems</h2>
-                  <ul className="list-decimal list-inside space-y-2 text-gray-700">
-                    {practiceData.problems.map((prob, idx) => (
-                      <li key={idx}>
-                        <p className="font-medium">{prob.question}</p>
-                        <p className="text-sm text-gray-500">Answer: {prob.answer}</p>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
+            {videoData?.videos && (
+              <div className="bg-white rounded shadow p-6 border mt-6">
+                <h2 className="text-lg font-semibold mb-4">📺 Recommended Videos</h2>
+                <ul className="space-y-4">
+                  {videoData.videos.map((vid, idx) => (
+                    <li key={idx}>
+                      <p className="text-blue-700 font-semibold">{vid.title}</p>
+                      <p className="text-gray-600 text-sm mb-1">{vid.description}</p>
+                      <a
+                        href={vid.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-500 hover:underline text-sm"
+                      >
+                        Watch Video
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </ContentContainer>
+        </div>
 
-              {videoData?.videos && (
-                <div>
-                  <h2 className="text-lg font-semibold mb-2">Recommended Videos</h2>
-                  <ul className="space-y-3">
-                    {videoData.videos.map((vid, idx) => (
-                      <li key={idx}>
-                        <p className="text-blue-700 font-semibold">{vid.title}</p>
-                        <p className="text-gray-600 text-sm">{vid.description}</p>
-                        <a
-                          href={vid.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-500 hover:underline text-sm"
-                        >
-                          Watch Video
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-
-            {/* Right Column: AI Assistant */}
-            <div className="w-full lg:w-1/2">
-              <AIChatAssistant topicId={nestedSubtopicId} />
-            </div>
-          </div>
-        </ContentContainer>
+        {/* Right Column - AI Assistant */}
+        <div className="w-full lg:w-1/2 flex flex-col min-h-[70vh]">
+          <AIChatAssistant topicId={nestedSubtopicId} />
+        </div>
       </main>
-
       <Footer />
     </div>
   );

@@ -10,6 +10,7 @@ from openai import OpenAI
 import os
 import json
 import traceback
+from typing import List, Optional
 
 # Load .env
 load_dotenv()
@@ -51,6 +52,7 @@ class ChatRequest(BaseModel):
     message: str
     topic_id: str = "general"
     history: list[dict] = []
+    objectives: Optional[List[str]] = []  # ✅ Add support for objectives
 
 # Add a new student
 @app.post("/students/")
@@ -79,19 +81,37 @@ async def update_progress(progress: Progress):
     )
     return {"message": "Progress updated"}
 
-# AI Chat Assistant
+# AI Chat Assistant with Learning Objectives
 @app.post("/chat")
 async def chat(request: ChatRequest):
     try:
+        # Select appropriate prompt based on topic
         prompts = SUBTOPIC_AI_PROMPTS.get(request.topic_id, SUBTOPIC_AI_PROMPTS["general"])
-        messages = [{"role": "system", "content": prompts["system"]}]
 
+        # Add learning objectives context if provided
+        objectives_context = ""
+        if request.objectives:
+            objectives_list = "\n".join([f"- {obj}" for obj in request.objectives])
+            objectives_context = (
+                "The student is working toward the following learning objectives:\n"
+                f"{objectives_list}\n"
+                "Please tailor your response to help the student achieve one or more of these."
+            )
+
+        # Construct system message
+        system_message = prompts["system"]
+        if objectives_context:
+            system_message += f"\n\n{objectives_context}"
+
+        # Build chat message sequence
+        messages = [{"role": "system", "content": system_message}]
         if not request.history:
             messages.append({"role": "assistant", "content": prompts["initial"]})
         else:
             messages.extend(request.history)
             messages.append({"role": "user", "content": request.message})
 
+        # Call OpenAI Chat API
         response = client.chat.completions.create(
             model="gpt-4o",
             messages=messages,
@@ -107,3 +127,4 @@ async def chat(request: ChatRequest):
         print("⚠️ Exception in /chat:")
         print(traceback.format_exc())
         return {"reply": f"⚠️ Error: {str(e)}"}
+

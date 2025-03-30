@@ -1,9 +1,9 @@
 // src/components/ContentContainer.jsx
 import React from "react";
 
-const ContentContainer = ({ children }) => {
+const ContentContainer = ({ children, className = "" }) => {
   return (
-    <div className="w-full max-w-[1800px] bg-white p-6 rounded shadow mx-auto">
+    <div className={`w-full bg-white p-6 rounded shadow mx-auto ${className}`}>
       {children}
     </div>
   );
