@@ -28,6 +28,7 @@ const NestedSubtopicPage = ({
   const [subtopicData, setSubtopicData] = useState(null);
   const [practiceData, setPracticeData] = useState(null);
   const [videoData, setVideoData] = useState(null);
+  const [objectiveProgress, setObjectiveProgress] = useState([]);
 
   useEffect(() => {
     Promise.all([
@@ -50,6 +51,10 @@ const NestedSubtopicPage = ({
 
   const WalkthroughComponent = walkthroughComponents[nestedSubtopicId] || null;
   const objectives = learningObjectives[nestedSubtopicId] || [];
+
+  const completed = objectiveProgress.filter(p => p === true).length;
+  const total = objectives.length;
+  const overallGrade = total > 0 ? Math.round((completed / total) * 100) : 0;
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-100">
@@ -79,11 +84,36 @@ const NestedSubtopicPage = ({
 
             {objectives.length > 0 && (
               <div className="mt-4">
+                {/* 🧠 Progress Explanation + Grade Box */}
+                <div className="mb-4 p-4 rounded bg-white border shadow">
+                  <p className="text-md text-gray-800 font-medium mb-2">
+                    <strong>📊 Module Progress Tracking:</strong> As you use the AI Assistant to learn, your progress toward completing the learning objectives will update.
+                  </p>
+                  <div className="flex justify-between items-center">
+                    <div className="text-lg font-bold text-gray-800">
+                      Overall Grade: {overallGrade}%
+                    </div>
+                    <div className="text-sm text-gray-600 space-x-4">
+                      <span>🟢 Completed</span>
+                      <span>🟡 Showing Progress</span>
+                      <span>🔵 Pending</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Learning Objectives */}
                 <h2 className="text-lg font-semibold mb-2">Learning Objectives</h2>
-                <ul className="list-disc list-inside text-gray-700">
-                  {objectives.map((obj, idx) => (
-                    <li key={idx}>{obj}</li>
-                  ))}
+                <ul className="list-none pl-0 space-y-2 text-gray-700">
+                  {objectives.map((obj, idx) => {
+                    const status = objectiveProgress[idx];
+                    const icon = status === true ? '🟢' : status === 'partial' ? '🟡' : '🔵';
+                    return (
+                      <li key={idx} className="flex items-start gap-2">
+                        <span className="mt-1">{icon}</span>
+                        <span>{obj}</span>
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             )}
@@ -135,7 +165,11 @@ const NestedSubtopicPage = ({
 
         {/* Right Column - AI Assistant */}
         <div className="w-full lg:w-1/2 flex flex-col min-h-[70vh]">
-          <AIChatAssistant topicId={nestedSubtopicId} />
+          <AIChatAssistant
+            topicId={nestedSubtopicId}
+            objectives={objectives}
+            onProgressUpdate={setObjectiveProgress}
+          />
         </div>
       </main>
       <Footer />

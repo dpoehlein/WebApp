@@ -4,11 +4,11 @@ import ReactMarkdown from 'react-markdown';
 import welcomeMessages from '../data/ai/welcomeMessages';
 import learningObjectives from '../data/ai/learningObjectives';
 
-const AIChatAssistant = ({ topicId = "general" }) => {
+const AIChatAssistant = ({ topicId = "general", onProgressUpdate }) => {
   const [input, setInput] = useState('');
   const [chat, setChat] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [progress, setProgress] = useState(0);
+  const [objectiveProgress, setObjectiveProgress] = useState([]);
   const [mode, setMode] = useState(null);
   const [awaitingAnswer, setAwaitingAnswer] = useState(false);
   const chatContainerRef = useRef(null);
@@ -34,6 +34,12 @@ const AIChatAssistant = ({ topicId = "general" }) => {
     }
   }, [chat, loading]);
 
+  const calculateGrade = (progressFlags) => {
+    const total = progressFlags.length;
+    const score = progressFlags.reduce((acc, p) => acc + (p === true ? 1 : p === 'partial' ? 0.5 : 0), 0);
+    return total > 0 ? Math.round((score / total) * 100) : 0;
+  };
+
   const sendMessage = async (customMessage = null) => {
     const messageToSend = customMessage || input;
     if (!messageToSend.trim()) return;
@@ -55,31 +61,15 @@ const AIChatAssistant = ({ topicId = "general" }) => {
       const botReply = { role: 'assistant', content: res.data.reply };
       setChat(prev => [...prev, botReply]);
 
-      if (mode === 'quiz') {
-        if (/correct|✅|great job|well done/i.test(res.data.reply)) {
-          setProgress(prev => Math.min(prev + 20, 100));
-          setAwaitingAnswer(false);
-
-          const nextPrompt = "Next question, please.";
-          const nextMessage = { role: 'user', content: nextPrompt };
-          const nextChat = [...updatedChat, botReply, nextMessage];
-          setChat(nextChat);
-
-          const nextRes = await axios.post('http://localhost:8000/chat', {
-            message: nextPrompt,
-            topic_id: topicId,
-            history: nextChat,
-            objectives: objectives
-          });
-
-          const nextReply = { role: 'assistant', content: nextRes.data.reply };
-          setChat(prev => [...prev, nextReply]);
-          setAwaitingAnswer(true);
-        } else {
-          setAwaitingAnswer(true);
+      if (res.data.progress && Array.isArray(res.data.progress)) {
+        setObjectiveProgress(res.data.progress);
+        const newGrade = calculateGrade(res.data.progress);
+        if (typeof onProgressUpdate === 'function') {
+          onProgressUpdate(res.data.progress, newGrade);
         }
       }
 
+      setAwaitingAnswer(false);
     } catch (err) {
       console.error("Chat error:", err);
       setChat(prev => [...prev, {
@@ -96,12 +86,6 @@ const AIChatAssistant = ({ topicId = "general" }) => {
     <div className="min-h-[95vh] max-h-[120vh] flex flex-col bg-gray-50 rounded shadow">
       <div className="flex items-center justify-between px-4 mb-2">
         <h3 className="text-lg font-semibold text-gray-800">Ask the AI Assistant</h3>
-        <div className="w-40 h-2 bg-gray-200 rounded-full relative">
-          <div
-            className="absolute top-0 left-0 h-2 bg-green-500 rounded-full transition-all duration-500"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
       </div>
 
       <div
@@ -127,13 +111,6 @@ const AIChatAssistant = ({ topicId = "general" }) => {
       </div>
 
       <div className="p-4 border-t bg-white">
-        <div className="text-sm text-gray-600 mb-1">Your Progress</div>
-        <div className="w-full h-2 bg-gray-200 rounded-full mb-3">
-          <div
-            className="h-2 bg-green-500 rounded-full transition-all duration-500"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
         <div className="flex gap-2">
           <input
             type="text"

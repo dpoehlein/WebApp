@@ -85,11 +85,9 @@ async def update_progress(progress: Progress):
 @app.post("/chat")
 async def chat(request: ChatRequest):
     try:
-        # Select appropriate prompt based on topic
         prompts = SUBTOPIC_AI_PROMPTS.get(request.topic_id, SUBTOPIC_AI_PROMPTS["general"])
-
-        # Add learning objectives context if provided
         objectives_context = ""
+
         if request.objectives:
             objectives_list = "\n".join([f"- {obj}" for obj in request.objectives])
             objectives_context = (
@@ -98,12 +96,12 @@ async def chat(request: ChatRequest):
                 "Please tailor your response to help the student achieve one or more of these."
             )
 
-        # Construct system message
+        # 1️⃣ First AI message: reply to the student
         system_message = prompts["system"]
         if objectives_context:
             system_message += f"\n\n{objectives_context}"
+        system_message += "\n\nImportant: Ask only ONE question at a time. Wait for the student to respond before asking another."
 
-        # Build chat message sequence
         messages = [{"role": "system", "content": system_message}]
         if not request.history:
             messages.append({"role": "assistant", "content": prompts["initial"]})
@@ -111,7 +109,6 @@ async def chat(request: ChatRequest):
             messages.extend(request.history)
             messages.append({"role": "user", "content": request.message})
 
-        # Call OpenAI Chat API
         response = client.chat.completions.create(
             model="gpt-4o",
             messages=messages,
@@ -121,10 +118,53 @@ async def chat(request: ChatRequest):
 
         reply = response.choices[0].message.content
         print("🤖 AI Reply:", reply)
-        return {"reply": reply}
+
+        # 2️⃣ Second AI message: evaluate progress toward objectives
+        if request.objectives:
+            eval_prompt = (
+                "You are a tutor AI. The student is trying to complete these objectives:\n"
+                + "\n".join([f"{i+1}. {obj}" for i, obj in enumerate(request.objectives)])
+                + "\n\nBased ONLY on the last exchange (user and your assistant reply), "
+                "evaluate whether the student showed understanding of each objective.\n"
+                "Return a list in this format:\n"
+                "[true, \"partial\", false, ...]\n"
+                "Only return the list. true = completed, \"partial\" = showing progress, false = not yet."
+            )
+
+            eval_messages = [
+                {"role": "system", "content": eval_prompt},
+                {"role": "user", "content": request.message},
+                {"role": "assistant", "content": reply}
+            ]
+
+            eval_response = client.chat.completions.create(
+                model="gpt-4o",
+                messages=eval_messages,
+                temperature=0.0,
+                max_tokens=200
+            )
+
+            raw_progress = eval_response.choices[0].message.content.strip()
+            print("📊 Progress Evaluation:", raw_progress)
+
+            try:
+                parsed = json.loads(raw_progress.replace("'", '"'))
+                if isinstance(parsed, list):
+                    progress_flags = parsed
+                else:
+                    progress_flags = [False] * len(request.objectives)
+            except Exception as e:
+                print("⚠️ Could not parse progress array:", e)
+                progress_flags = [False] * len(request.objectives)
+        else:
+            progress_flags = []
+
+        return {
+            "reply": reply,
+            "progress": progress_flags
+        }
 
     except Exception as e:
         print("⚠️ Exception in /chat:")
         print(traceback.format_exc())
-        return {"reply": f"⚠️ Error: {str(e)}"}
-
+        return {"reply": f"⚠️ Error: {str(e)}", "progress": []}

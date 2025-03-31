@@ -4,6 +4,9 @@ import TopicPage from './pages/topics/TopicPage';
 import SubtopicPage from './pages/topics/SubtopicPage';
 import NestedSubtopicPage from './pages/topics/NestedSubtopicPage';
 
+// ✅ Import your custom BinaryPage
+import BinaryPage from './pages/topics/digital_electronics/subtopics/number_systems/binary/binary';
+
 function App() {
   return (
     <Router basename="/">
@@ -14,8 +17,17 @@ function App() {
         {/* Topic-level route (e.g., /topics/digital_electronics) */}
         <Route path="/topics/:topicId" element={<TopicPage />} />
 
-        {/* Nested Subtopic route (e.g., /topics/digital_electronics/number_systems/binary) */}
-        <Route path="/topics/:topicId/:subtopicId/:nestedSubtopicId" element={<NestedSubtopicPage />} />
+        {/* ✅ Custom route for Binary Numbers nested subtopic */}
+        <Route
+          path="/topics/digital_electronics/number_systems/binary"
+          element={<BinaryPage />}
+        />
+
+        {/* Nested Subtopic route (e.g., /topics/digital_electronics/number_systems/bcd) */}
+        <Route
+          path="/topics/:topicId/:subtopicId/:nestedSubtopicId"
+          element={<NestedSubtopicPage />}
+        />
 
         {/* Subtopic-level route (e.g., /topics/digital_electronics/number_systems) */}
         <Route path="/topics/:topicId/:subtopicId" element={<SubtopicPage />} />
