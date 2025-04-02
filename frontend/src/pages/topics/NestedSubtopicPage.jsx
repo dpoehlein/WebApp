@@ -18,7 +18,8 @@ const walkthroughComponents = {
 const NestedSubtopicPage = ({
   topicId: propTopicId,
   subtopicId: propSubtopicId,
-  nestedSubtopicId: propNestedSubtopicId
+  nestedSubtopicId: propNestedSubtopicId,
+  renderCustomContent // <-- Accept custom content
 }) => {
   const routeParams = useParams();
   const topicId = propTopicId || routeParams.topicId;
@@ -78,6 +79,7 @@ const NestedSubtopicPage = ({
         {/* Left Column - Content */}
         <div className="w-full lg:w-1/2 overflow-y-auto pr-2">
           <ContentContainer className="max-w-none">
+            {typeof renderCustomContent === 'function' && renderCustomContent()}
             <p className="text-gray-700 text-lg font-medium">
               {subtopicData.description}
             </p>
