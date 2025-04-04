@@ -10,16 +10,22 @@ import Banner from "../../components/Banner";
 
 import learningObjectives from '../../data/ai/learningObjectives';
 
+// Dynamically register walkthrough components
 const walkthroughComponents = {
   binary: React.lazy(() => import('../../components/digital_electronics/number_systems/BinaryDemo')),
-  // Add more walkthrough components here
+  // Add more walkthroughs here...
+};
+
+// Dynamically register quiz modals
+const quizModals = {
+  binary: React.lazy(() => import('../../components/digital_electronics/number_systems/BinaryQuizModal')),
+  // Add more quiz modals here...
 };
 
 const NestedSubtopicPage = ({
   topicId: propTopicId,
   subtopicId: propSubtopicId,
   nestedSubtopicId: propNestedSubtopicId,
-  renderCustomContent // <-- Accept custom content
 }) => {
   const routeParams = useParams();
   const topicId = propTopicId || routeParams.topicId;
@@ -30,6 +36,7 @@ const NestedSubtopicPage = ({
   const [practiceData, setPracticeData] = useState(null);
   const [videoData, setVideoData] = useState(null);
   const [objectiveProgress, setObjectiveProgress] = useState([]);
+  const [isQuizOpen, setIsQuizOpen] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -51,6 +58,7 @@ const NestedSubtopicPage = ({
   const subtopicName = subtopicId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 
   const WalkthroughComponent = walkthroughComponents[nestedSubtopicId] || null;
+  const QuizModal = quizModals[nestedSubtopicId] || null;
   const objectives = learningObjectives[nestedSubtopicId] || [];
 
   const completed = objectiveProgress.filter(p => p === true).length;
@@ -74,19 +82,18 @@ const NestedSubtopicPage = ({
         ]}
       />
 
-      {/* Main content and AI side-by-side */}
       <main className="flex-1 w-full px-6 py-8 flex flex-col lg:flex-row gap-6">
-        {/* Left Column - Content */}
+        {/* LEFT COLUMN */}
         <div className="w-full lg:w-1/2 overflow-y-auto pr-2">
           <ContentContainer className="max-w-none">
-            {typeof renderCustomContent === 'function' && renderCustomContent()}
-            <p className="text-gray-700 text-lg font-medium">
+
+            <p className="text-gray-700 text-lg font-medium mb-4">
               {subtopicData.description}
             </p>
 
+            {/* Progress & Learning Objectives */}
             {objectives.length > 0 && (
-              <div className="mt-4">
-                {/* 🧠 Progress Explanation + Grade Box */}
+              <div className="mb-6">
                 <div className="mb-4 p-4 rounded bg-white border shadow">
                   <p className="text-md text-gray-800 font-medium mb-2">
                     <strong>📊 Module Progress Tracking:</strong> As you use the AI Assistant to learn, your progress toward completing the learning objectives will update.
@@ -103,7 +110,6 @@ const NestedSubtopicPage = ({
                   </div>
                 </div>
 
-                {/* Learning Objectives */}
                 <h2 className="text-lg font-semibold mb-2">Learning Objectives</h2>
                 <ul className="list-none pl-0 space-y-2 text-gray-700">
                   {objectives.map((obj, idx) => {
@@ -120,6 +126,22 @@ const NestedSubtopicPage = ({
               </div>
             )}
 
+            {/* Quiz Button & Modal (dynamic) */}
+            {QuizModal && (
+              <div className="text-center mb-6">
+                <button
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-6 rounded-lg shadow-md transition duration-200"
+                  onClick={() => setIsQuizOpen(true)}
+                >
+                  🧠 Take {subtopicData.title} Quiz
+                </button>
+                <Suspense fallback={<div>Loading quiz...</div>}>
+                  <QuizModal isOpen={isQuizOpen} onClose={() => setIsQuizOpen(false)} />
+                </Suspense>
+              </div>
+            )}
+
+            {/* Walkthrough / Practice Problems */}
             {WalkthroughComponent ? (
               <Suspense fallback={<div>Loading visual...</div>}>
                 <div className="mt-6">
@@ -141,6 +163,7 @@ const NestedSubtopicPage = ({
               </div>
             ) : null}
 
+            {/* Video Section */}
             {videoData?.videos && (
               <div className="bg-white rounded shadow p-6 border mt-6">
                 <h2 className="text-lg font-semibold mb-4">📺 Recommended Videos</h2>
@@ -162,10 +185,11 @@ const NestedSubtopicPage = ({
                 </ul>
               </div>
             )}
+
           </ContentContainer>
         </div>
 
-        {/* Right Column - AI Assistant */}
+        {/* RIGHT COLUMN: AI Assistant */}
         <div className="w-full lg:w-1/2 flex flex-col min-h-[70vh]">
           <AIChatAssistant
             topicId={nestedSubtopicId}

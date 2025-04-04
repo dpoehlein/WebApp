@@ -1,6 +1,5 @@
 {
   "title": "Binary Numbers",
-  "description": "Learn how binary numbers work and their role in computing.",
   "learning_objectives": [
     "Understand binary number representation",
     "Convert between binary and decimal"

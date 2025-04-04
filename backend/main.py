@@ -24,7 +24,7 @@ else:
     print("❌ OPENAI_API_KEY not found in environment variables!")
 
 # ✅ Initialize OpenAI client
-client = OpenAI(api_key=api_key)
+client = OpenAI
 
 # ✅ Load AI prompts
 file_path = os.path.join(os.path.dirname(__file__), "data", "ai_prompts.json")
