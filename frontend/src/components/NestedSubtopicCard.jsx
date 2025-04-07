@@ -1,13 +1,33 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as BsIcons from 'react-icons/bs';
+import * as TbIcons from 'react-icons/tb';
+import * as HiIcons from 'react-icons/hi';
+import * as CgIcons from 'react-icons/cg';
+
+const getIconComponent = (icon) => {
+  if (!icon) return null;
+  const prefix = icon.slice(0, 2);
+  switch (prefix) {
+    case 'Bs':
+      return BsIcons[icon];
+    case 'Tb':
+      return TbIcons[icon];
+    case 'Hi':
+      return HiIcons[icon];
+    case 'Cg':
+      return CgIcons[icon];
+    default:
+      return null;
+  }
+};
 
 const NestedSubtopicCard = ({ id, title, description, parentId, icon, topicId }) => {
   const navigate = useNavigate();
-  const IconComponent = icon ? BsIcons[icon] : null;
+  const IconComponent = getIconComponent(icon);
 
   const handleClick = () => {
-    navigate(`/topics/${topicId}/${parentId}/${id}`); // ✅ Corrected path
+    navigate(`/topics/${topicId}/${parentId}/${id}`);
   };
 
   return (

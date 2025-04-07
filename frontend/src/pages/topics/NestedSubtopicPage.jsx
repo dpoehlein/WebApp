@@ -52,18 +52,35 @@ const NestedSubtopicPage = ({
       .catch((err) => console.error("Failed to load nested subtopic data:", err));
   }, [topicId, subtopicId, nestedSubtopicId]);
 
-  if (!subtopicData) return <div className="p-8 text-gray-600">Loading...</div>;
-
+  const objectives = learningObjectives[nestedSubtopicId] || [];
   const topicName = topicId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   const subtopicName = subtopicId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 
   const WalkthroughComponent = walkthroughComponents[nestedSubtopicId] || null;
   const QuizModal = quizModals[nestedSubtopicId] || null;
-  const objectives = learningObjectives[nestedSubtopicId] || [];
 
   const completed = objectiveProgress.filter(p => p === true).length;
   const total = objectives.length;
   const overallGrade = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+  const handleQuizCompletion = ({ score, objectiveKeys }) => {
+    setIsQuizOpen(false);
+
+    setObjectiveProgress((prev) => {
+      const updated = [...prev];
+
+      objectiveKeys.forEach((key) => {
+        const index = objectives.findIndex((obj) => obj.key === key);
+        if (index !== -1) {
+          updated[index] = true;
+        }
+      });
+
+      return updated;
+    });
+  };
+
+  if (!subtopicData) return <div className="p-8 text-gray-600">Loading...</div>;
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-100">
@@ -96,7 +113,7 @@ const NestedSubtopicPage = ({
               <div className="mb-6">
                 <div className="mb-4 p-4 rounded bg-white border shadow">
                   <p className="text-md text-gray-800 font-medium mb-2">
-                    <strong>📊 Module Progress Tracking:</strong> As you use the AI Assistant to learn, your progress toward completing the learning objectives will update.
+                    <strong>📊 Module Progress Tracking:</strong> As you use the AI Assistant or complete the quiz, your progress toward completing the learning objectives will update.
                   </p>
                   <div className="flex justify-between items-center">
                     <div className="text-lg font-bold text-gray-800">
@@ -118,7 +135,7 @@ const NestedSubtopicPage = ({
                     return (
                       <li key={idx} className="flex items-start gap-2">
                         <span className="mt-1">{icon}</span>
-                        <span>{obj}</span>
+                        <span>{typeof obj === 'object' ? obj.text : obj}</span>
                       </li>
                     );
                   })}
@@ -136,7 +153,11 @@ const NestedSubtopicPage = ({
                   🧠 Take {subtopicData.title} Quiz
                 </button>
                 <Suspense fallback={<div>Loading quiz...</div>}>
-                  <QuizModal isOpen={isQuizOpen} onClose={() => setIsQuizOpen(false)} />
+                  <QuizModal
+                    isOpen={isQuizOpen}
+                    onClose={() => setIsQuizOpen(false)}
+                    onQuizComplete={handleQuizCompletion}
+                  />
                 </Suspense>
               </div>
             )}

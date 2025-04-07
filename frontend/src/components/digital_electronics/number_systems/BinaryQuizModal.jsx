@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 
-const BinaryQuizModal = ({ isOpen, onClose }) => {
+const BinaryQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
     const [questions, setQuestions] = useState([]);
     const [answers, setAnswers] = useState({});
     const [submitted, setSubmitted] = useState(false);
@@ -75,14 +75,62 @@ const BinaryQuizModal = ({ isOpen, onClose }) => {
         setQuestions(generated);
         setAnswers({});
         setSubmitted(false);
+        console.log("🟢 Quiz started with questions:", generated);
     };
 
     const handleChange = (index, value) => {
         setAnswers({ ...answers, [index]: value });
     };
 
+    const calculateScoreAndReport = () => {
+        let correct = 0;
+        questions.forEach((q, i) => {
+            if (answers[i]?.trim() === q.correctAnswer) {
+                correct++;
+            }
+        });
+
+        const score = Math.round((correct / questions.length) * 100);
+
+        // Map types to learning objectives
+        const objectiveMap = {
+            bin_to_dec: 'binary_conversion_binary_to_decimal',
+            dec_to_bin: 'binary_conversion_decimal_to_binary',
+            definition: 'binary_structure_understanding'
+        };
+
+        const objectiveCounts = {};
+        questions.forEach((q, i) => {
+            const key = objectiveMap[q.type];
+            if (!objectiveCounts[key]) objectiveCounts[key] = { correct: 0, total: 0 };
+            objectiveCounts[key].total++;
+            if (answers[i]?.trim() === q.correctAnswer) {
+                objectiveCounts[key].correct++;
+            }
+        });
+
+        const achievedObjectives = Object.entries(objectiveCounts)
+            .filter(([_, stats]) => stats.correct / stats.total >= 0.67)
+            .map(([key]) => key);
+
+        console.log("📊 Final Score:", score);
+        console.log("✅ Achieved Objectives:", achievedObjectives);
+        console.log("📤 Sending to onQuizComplete...");
+
+        if (onQuizComplete && typeof onQuizComplete === 'function') {
+            onQuizComplete({
+                score,
+                objectiveKeys: achievedObjectives
+            });
+        } else {
+            console.warn("⚠️ onQuizComplete function is missing or not a function.");
+        }
+    };
+
     const handleSubmit = () => {
         setSubmitted(true);
+        console.log("📝 Submitting quiz with answers:", answers);
+        calculateScoreAndReport();
     };
 
     if (!isOpen) return null;
@@ -116,8 +164,8 @@ const BinaryQuizModal = ({ isOpen, onClose }) => {
                                 {submitted && (
                                     <p
                                         className={`mt-1 text-sm ${answers[i]?.trim() === q.correctAnswer
-                                                ? "text-green-600"
-                                                : "text-red-600"
+                                            ? "text-green-600"
+                                            : "text-red-600"
                                             }`}
                                     >
                                         {answers[i]?.trim() === q.correctAnswer
