@@ -94,7 +94,7 @@ const NestedSubtopicPage = ({
         paths={[
           { label: "Home", to: "/" },
           { label: topicName, to: `/topics/${topicId}` },
-          { label: subtopicName, to: `/topics/${topicId}/subtopics/${subtopicId}` },
+          { label: subtopicName, to: `/topics/${topicId}/${subtopicId}` },
           { label: subtopicData.title }
         ]}
       />
@@ -117,7 +117,7 @@ const NestedSubtopicPage = ({
                   </p>
                   <div className="flex justify-between items-center">
                     <div className="text-lg font-bold text-gray-800">
-                      Overall Grade: {overallGrade}%
+                      Topic Grade: {overallGrade}%
                     </div>
                     <div className="text-sm text-gray-600 space-x-4">
                       <span>🟢 Completed</span>

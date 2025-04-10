@@ -15,5 +15,6 @@ except Exception as e:
 # Define collections (NoSQL equivalent of tables)
 students_collection = db["students"] if db is not None else None  # Stores student accounts
 progress_collection = db["progress"] if db is not None else None  # Tracks student progress
-assignments_collection = db["assignments"] if db is not None else None  # Stores submitted Excel files
+assignments_collection = db["assignments"] if db is not None else None  # Stores uploaded Excel files
+assignment_grades_collection = db["assignment_grades"] if db is not None else None  # ✅ Graded scores & feedback
 

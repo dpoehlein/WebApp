@@ -18,8 +18,8 @@ const AIChatAssistant = ({ topicId = "general", onProgressUpdate }) => {
   const welcomeMessageFn = welcomeMessages[topicId];
   const objectives = learningObjectives[topicId] || [];
 
-  const welcomeMessage = typeof welcomeMessageFn === 'function'
-    ? welcomeMessageFn(formattedTitle)
+  const welcomeMessage = welcomeMessageFn
+    ? (typeof welcomeMessageFn === 'function' ? welcomeMessageFn(formattedTitle) : welcomeMessageFn)
     : welcomeMessages['general'](formattedTitle);
 
   useEffect(() => {

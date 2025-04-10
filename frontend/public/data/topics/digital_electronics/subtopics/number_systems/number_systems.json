@@ -1,49 +1,49 @@
 {
-    "title": "Number Systems",
-    "description": "Learn binary, octal, hexadecimal, and more. Explore their conversions and applications in digital electronics.",
-    "learning_objectives": [
-      "Understand different number systems: binary, octal, decimal, hexadecimal",
-      "Convert numbers between different bases"
-    ],
-    "subtopics_title": "Explore Number Systems",
-    "subtopics": [
-      {
-        "id": "binary",
-        "title": "Binary Numbers",
-        "description": "Learn how binary numbers work and their role in computing.",
-        "icon": "TbBinary"
-      },
-      {
-        "id": "octal",
-        "title": "Octal Numbers",
-        "description": "Understand how octal simplifies binary grouping in digital electronics.",
-        "icon": "BsCircleHalf"
-      },
-      {
-        "id": "hexadecimal",
-        "title": "Hexadecimal Numbers",
-        "description": "Understand base-16 number systems and conversions.",
-        "icon": "BsHexagonHalf"
-      },
-      {
-        "id": "bcd",
-        "title": "Binary Coded Decimal (BCD)",
-        "description": "Explore how decimal numbers are represented in digital circuits.",
-        "icon": "BsCalculator"
-      },
-      {
-        "id": "gray_code",
-        "title": "Gray Code",
-        "description": "Learn about Gray Code and its applications in encoders.",
-        "icon": "BsCodeSlash"
-      }
-    ],
-    "lti_deep_links": [
-      {
-        "title": "Number Systems Assignment",
-        "url": "/assignments/number_systems",
-        "description": "Download an Excel file and use the AI Assistant to get immediate feedback while completing the assignment."
-      }
-    ]
-  }
-  
+  "title": "Number Systems",
+  "description": "Discover how binary, octal, decimal, and hexadecimal number systems are used in digital electronics. Learn to convert between bases and apply these skills in real-world logic and computing.",
+  "learning_objectives": [
+    "Learn the structure and purpose of different number systems",
+    "Convert numbers between binary, octal, decimal, and hexadecimal",
+    "Understand how these systems apply to digital circuits and computing"
+  ],
+  "subtopics_title": "Explore Number Systems",
+  "subtopics": [
+    {
+      "id": "binary",
+      "title": "Binary Numbers",
+      "description": "Learn how binary numbers work and their role in computing.",
+      "icon": "TbBinary"
+    },
+    {
+      "id": "octal",
+      "title": "Octal Numbers",
+      "description": "Understand how octal simplifies binary grouping in digital electronics.",
+      "icon": "BsCircleHalf"
+    },
+    {
+      "id": "hexadecimal",
+      "title": "Hexadecimal Numbers",
+      "description": "Understand base-16 number systems and conversions.",
+      "icon": "BsHexagonHalf"
+    },
+    {
+      "id": "bcd",
+      "title": "Binary Coded Decimal (BCD)",
+      "description": "Explore how decimal numbers are represented in digital circuits.",
+      "icon": "BsCalculator"
+    },
+    {
+      "id": "gray_code",
+      "title": "Gray Code",
+      "description": "Learn about Gray Code and its applications in encoders.",
+      "icon": "BsCodeSlash"
+    }
+  ],
+  "lti_deep_links": [
+    {
+      "title": "Number Systems Assignment",
+      "url": "/assignments/number_systems",
+      "description": "Download an Excel file and use the AI Assistant to get immediate feedback while completing the assignment."
+    }
+  ]
+}

@@ -1,5 +1,5 @@
-from fastapi import FastAPI, HTTPException
-from backend.database import students_collection, progress_collection
+from fastapi import FastAPI, HTTPException, UploadFile, File, Request
+from backend.database import students_collection, progress_collection, assignment_grades_collection
 from backend.models import Student, Progress
 from bson import ObjectId
 
@@ -12,19 +12,19 @@ import json
 import traceback
 from typing import List, Optional
 import importlib.util
+from datetime import datetime
 
-# ✅ Load .env
+# ✅ Load environment variables
 load_dotenv()
 
-# ✅ Safe check for API key
 api_key = os.getenv("OPENAI_API_KEY")
 if api_key:
     print("✅ Loaded OpenAI Key:", api_key[:10] + "...")
 else:
-    print("❌ OPENAI_API_KEY not found in environment variables!")
+    print("❌ OPENAI_API_KEY not found!")
 
-# ✅ Initialize OpenAI client
-client = OpenAI
+# ✅ OpenAI client
+client = OpenAI(api_key=api_key)
 
 # ✅ Load AI prompts
 file_path = os.path.join(os.path.dirname(__file__), "data", "ai_prompts.json")
@@ -34,7 +34,7 @@ with open(file_path, "r", encoding="utf-8") as f:
 # ✅ Init FastAPI
 app = FastAPI()
 
-# ✅ Enable CORS
+# ✅ CORS setup
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],
@@ -48,7 +48,15 @@ app.add_middleware(
 async def root():
     return {"status": "ok", "message": "FastAPI backend is running"}
 
-# ✅ Student management
+# ✅ Models
+class ChatRequest(BaseModel):
+    message: str
+    topic_id: str = "general"
+    subtopic_id: Optional[str] = None
+    history: list[dict] = []
+    objectives: Optional[List[str]] = []
+
+# ✅ Student API
 @app.post("/students/")
 async def create_student(student: Student):
     existing = await students_collection.find_one({"email": student.email})
@@ -73,33 +81,31 @@ async def update_progress(progress: Progress):
     )
     return {"message": "Progress updated"}
 
-# ✅ AI Chat Structures
-class ChatRequest(BaseModel):
-    message: str
-    topic_id: str = "general"
-    subtopic_id: Optional[str] = None
-    history: list[dict] = []
-    objectives: Optional[List[str]] = []
+@app.get("/grades/{student_id}")
+async def get_grades(student_id: str):
+    grades = assignment_grades_collection.find({"student_id": student_id})
+    results = []
+    async for grade in grades:
+        grade["_id"] = str(grade["_id"])
+        results.append(grade)
+    return results
 
-# ✅ Load evaluator for objectives
+# ✅ Chat evaluator loader
 def load_objective_checker(topic_id: str, subtopic_id: Optional[str]):
     if not subtopic_id:
         return None
-
-    rel_path = f"backend/learning_objectives/{topic_id}/{subtopic_id}.py"
-    abs_path = os.path.join(os.path.dirname(__file__), rel_path)
-
+    path = f"backend/learning_objectives/{topic_id}/{subtopic_id}.py"
+    abs_path = os.path.join(os.path.dirname(__file__), path)
     if not os.path.exists(abs_path):
-        print(f"⚠️ No custom evaluator found at {rel_path}")
+        print(f"⚠️ No custom evaluator at {path}")
         return None
-
     try:
         spec = importlib.util.spec_from_file_location("objectives", abs_path)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         return getattr(module, "get_objective_state", None)
     except Exception as e:
-        print(f"❌ Error loading evaluator from {rel_path}: {e}")
+        print(f"❌ Error loading evaluator: {e}")
         return None
 
 # ✅ AI Chat endpoint
@@ -107,20 +113,13 @@ def load_objective_checker(topic_id: str, subtopic_id: Optional[str]):
 async def chat(request: ChatRequest):
     try:
         prompts = SUBTOPIC_AI_PROMPTS.get(request.subtopic_id or request.topic_id, SUBTOPIC_AI_PROMPTS["general"])
-        objectives_context = ""
+        system_message = prompts["system"]
 
         if request.objectives:
             objectives_list = "\n".join([f"- {obj}" for obj in request.objectives])
-            objectives_context = (
-                "The student is working toward the following learning objectives:\n"
-                f"{objectives_list}\n"
-                "Please tailor your response to help the student achieve one or more of these."
-            )
+            system_message += f"\n\nThe student is working toward:\n{objectives_list}"
 
-        system_message = prompts["system"]
-        if objectives_context:
-            system_message += f"\n\n{objectives_context}"
-        system_message += "\n\nImportant: Ask only ONE question at a time. Wait for the student to respond before asking another."
+        system_message += "\n\nImportant: Ask only ONE question at a time."
 
         messages = [{"role": "system", "content": system_message}]
         if not request.history:
@@ -144,60 +143,106 @@ async def chat(request: ChatRequest):
             custom_checker = load_objective_checker(request.topic_id, request.subtopic_id)
             if custom_checker:
                 try:
-                    progress_flags = custom_checker(request.history + [{"role": "user", "content": request.message}, {"role": "assistant", "content": reply}])
+                    raw_flags = custom_checker(
+                        request.history + [{"role": "user", "content": request.message}, {"role": "assistant", "content": reply}]
+                    )
+                    progress_flags = [
+                        True if flag is True else "partial" if flag else False
+                        for flag in raw_flags
+                    ]
                 except Exception as e:
-                    print("⚠️ Custom evaluator failed:", e)
+                    print("⚠️ Objective checker error:", e)
                     progress_flags = [False] * len(request.objectives)
             else:
                 eval_prompt = (
                     "You are a tutor AI. The student is trying to complete these objectives:\n"
                     + "\n".join([f"{i+1}. {obj}" for i, obj in enumerate(request.objectives)])
-                    + "\n\nBased ONLY on the last exchange (user and your assistant reply), "
-                    "evaluate whether the student showed understanding of each objective.\n"
-                    "Return a list in this format:\n"
-                    "[true, \"partial\", false, ...]"
+                    + "\n\nBased ONLY on the last exchange, evaluate their understanding.\nReturn a list like:\n[true, \"partial\", false]"
                 )
-
-                eval_messages = [
-                    {"role": "system", "content": eval_prompt},
-                    {"role": "user", "content": request.message},
-                    {"role": "assistant", "content": reply}
-                ]
 
                 eval_response = client.chat.completions.create(
                     model="gpt-4o",
-                    messages=eval_messages,
+                    messages=[
+                        {"role": "system", "content": eval_prompt},
+                        {"role": "user", "content": request.message},
+                        {"role": "assistant", "content": reply}
+                    ],
                     temperature=0.0,
                     max_tokens=200
                 )
 
-                raw_progress = eval_response.choices[0].message.content.strip()
-                print("📊 AI Progress Eval:", raw_progress)
+                raw = eval_response.choices[0].message.content.strip()
+                print("📊 Eval:", raw)
 
                 try:
-                    parsed = json.loads(raw_progress.replace("'", '"'))
+                    parsed = json.loads(raw.replace("'", '"'))
                     progress_flags = parsed if isinstance(parsed, list) else [False] * len(request.objectives)
                 except Exception as e:
-                    print("⚠️ JSON parsing failed:", e)
+                    print("⚠️ Failed to parse eval:", e)
                     progress_flags = [False] * len(request.objectives)
 
-        return {
-            "reply": reply,
-            "progress": progress_flags
-        }
+        return {"reply": reply, "progress": progress_flags}
 
     except Exception as e:
-        print("⚠️ Exception in /chat:")
-        print(traceback.format_exc())
+        print("⚠️ Chat error:", traceback.format_exc())
         return {"reply": f"⚠️ Error: {str(e)}", "progress": []}
 
-# ✅ Binary Quiz API
+# ✅ Binary quiz endpoint
 @app.get("/quiz/binary")
 async def get_binary_quiz():
     try:
         from backend.quiz.binary_quiz import generate_binary_quiz
-        quiz = generate_binary_quiz()
-        return {"quiz": quiz}
+        return {"quiz": generate_binary_quiz()}
     except Exception as e:
         print("⚠️ Failed to generate quiz:", e)
-        raise HTTPException(status_code=500, detail="Could not generate quiz")
+        raise HTTPException(status_code=500, detail="Quiz generation error")
+
+# ✅ Dynamic grading endpoint
+@app.post("/grade/{topic_id}/{subtopic_id}")
+async def dynamic_grader(
+    topic_id: str,
+    subtopic_id: str,
+    file: UploadFile = File(...),
+    request: Request = None
+):
+    try:
+        contents = await file.read()
+        rel_path = f"backend/graders/{topic_id}/{subtopic_id}.py"
+        abs_path = os.path.join(os.path.dirname(__file__), rel_path)
+
+        if not os.path.exists(abs_path):
+            raise HTTPException(status_code=404, detail=f"No grader for {topic_id}/{subtopic_id}")
+
+        spec = importlib.util.spec_from_file_location("grader", abs_path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        if not hasattr(module, "grade"):
+            raise HTTPException(status_code=500, detail=f"'grade' function missing in {topic_id}/{subtopic_id}.py")
+
+        result = module.grade(contents)
+
+        # ✅ Save grade to MongoDB if student_id is passed
+        student_id = request.query_params.get("student_id")
+        if student_id:
+            await assignment_grades_collection.update_one(
+                {
+                    "student_id": student_id,
+                    "topic_id": topic_id,
+                    "subtopic_id": subtopic_id
+                },
+                {
+                    "$set": {
+                        "score": result["score"],
+                        "feedback": result["feedback"],
+                        "timestamp": datetime.utcnow()
+                    }
+                },
+                upsert=True
+            )
+
+        return result
+
+    except Exception as e:
+        print("⚠️ Grading error:", traceback.format_exc())
+        raise HTTPException(status_code=500, detail="Failed to grade assignment")

@@ -4,35 +4,35 @@ import TopicPage from './pages/topics/TopicPage';
 import SubtopicPage from './pages/topics/SubtopicPage';
 import NestedSubtopicPage from './pages/topics/NestedSubtopicPage';
 
-// ✅ Import your custom BinaryPage
+// ✅ Custom routes
 import BinaryPage from './pages/topics/digital_electronics/subtopics/number_systems/binary/binary';
+import AssignmentPage from './components/digital_electronics/number_systems/AssignmentPage/AssignmentPage';
 
 function App() {
   return (
     <Router basename="/">
       <Routes>
-        {/* Home Page – lists all major topics */}
         <Route path="/" element={<Home />} />
-
-        {/* Topic-level route (e.g., /topics/digital_electronics) */}
         <Route path="/topics/:topicId" element={<TopicPage />} />
 
-        {/* ✅ Custom route for Binary Numbers nested subtopic */}
         <Route
           path="/topics/digital_electronics/number_systems/binary"
           element={<BinaryPage />}
         />
 
-        {/* Nested Subtopic route (e.g., /topics/digital_electronics/number_systems/bcd) */}
         <Route
           path="/topics/:topicId/:subtopicId/:nestedSubtopicId"
           element={<NestedSubtopicPage />}
         />
 
-        {/* Subtopic-level route (e.g., /topics/digital_electronics/number_systems) */}
         <Route path="/topics/:topicId/:subtopicId" element={<SubtopicPage />} />
 
-        {/* 404 fallback */}
+        {/* ✅ New assignment route */}
+        <Route
+          path="/assignments/number_systems"
+          element={<AssignmentPage />}
+        />
+
         <Route
           path="*"
           element={

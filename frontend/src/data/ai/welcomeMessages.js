@@ -1,34 +1,32 @@
 // src/data/ai/welcomeMessages.js
 
-const welcomeMessages = {
-  binary: (title) => `👋 Welcome! I'm your AI Assistant here to help you master ${title}.
+export const welcomeMessages = {
+  binary: `🎓 Welcome! I'm your AI Assistant here to help you learn about **Binary Numbers**.  
+You can ask questions, practice problems, or explore concepts.
 
-You can choose how you’d like to get started:
+🧠 At any point, you can take the **Binary Numbers Quiz** to earn credit toward completing this module.`,
 
-1️⃣ **Explain ${title}** – I’ll walk you through the concept step by step.  
-2️⃣ **Give Me a Practice Problem** – Try solving a ${title.toLowerCase()} conversion with my help.  
-3️⃣ **Quiz Me** – I’ll generate a quick challenge to test your knowledge.`,
+  octal: (title) => `🎓 Welcome! I'm your AI Assistant here to help you learn about **${title}**.  
+You can ask questions, practice problems, or explore concepts.
 
-  octal: (title) => `👋 Welcome! I'm your AI Assistant here to help you master ${title}.
+🧠 At any point, you can take the **${title} Quiz** to earn credit toward completing this module.`,
 
-Here’s how you can begin:
+  hexadecimal: (title) => `🎓 Welcome! I'm your AI Assistant here to help you learn about **${title}**.  
+You can ask questions, practice problems, or explore concepts.
 
-1️⃣ **Understand ${title}** – Learn how octal groups binary digits in sets of 3.  
-2️⃣ **Practice Conversions** – Try converting between octal, binary, and decimal.  
-3️⃣ **Test Me** – I’m ready to quiz you!`,
+🧠 At any point, you can take the **${title} Quiz** to earn credit toward completing this module.`,
 
-  hexadecimal: (title) => `👋 Welcome! I'm your AI Assistant here to help you master ${title}.
+  bcd: (title) => `🎓 Welcome! I'm your AI Assistant here to help you learn about **${title}**.  
+You can ask questions, practice problems, or explore concepts.
 
-Let’s begin:
+🧠 At any point, you can take the **${title} Quiz** to earn credit toward completing this module.`,
 
-1️⃣ **Understand ${title}** – Learn about base 16 and conversions.  
-2️⃣ **Practice** – I’ll walk you through problems.  
-3️⃣ **Quiz Me** – Let’s test your skills!`,
+  gray_code: (title) => `🎓 Welcome! I'm your AI Assistant here to help you learn about **${title}**.  
+You can ask questions, practice problems, or explore concepts.
 
-  // 🔁 Add more like `bcd`, `gray_code`, etc. below
+🧠 At any point, you can take the **${title} Quiz** to earn credit toward completing this module.`,
 
-  general: (title) => `👋 Welcome! I'm your AI Assistant here to help with ${title}.
-
+  general: (title) => `👋 Welcome! I'm your AI Assistant here to help with **${title}**.  
 Ask me anything to get started!`
 };
 
