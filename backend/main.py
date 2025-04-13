@@ -6,7 +6,7 @@ from bson import ObjectId
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
-from openai import OpenAI
+from openai import OpenAI  # ✅ Correct for SDK v1.x
 import os
 import json
 import traceback
@@ -23,7 +23,7 @@ if api_key:
 else:
     print("❌ OPENAI_API_KEY not found!")
 
-# ✅ OpenAI client
+# ✅ Initialize OpenAI client
 client = OpenAI(api_key=api_key)
 
 # ✅ Load AI prompts
