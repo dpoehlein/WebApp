@@ -181,11 +181,23 @@ async def chat(request: ChatRequest):
                     print("⚠️ Failed to parse eval:", e)
                     progress_flags = [False] * len(request.objectives)
 
-        return {"reply": reply, "progress": progress_flags}
+        # ✅ Detect if student is ready to take quiz
+        ready_prompt = None
+        if progress_flags:
+            total = len(progress_flags)
+            complete = sum(1 for p in progress_flags if p is True)
+            if total > 0 and complete / total >= 0.8:
+                ready_prompt = "🎯 It looks like you've mastered most of this topic. Ready to test yourself? Go ahead and take the quiz when you're ready!"
+
+        return {
+            "reply": reply,
+            "progress": progress_flags,
+            "ready_prompt": ready_prompt
+        }
 
     except Exception as e:
         print("⚠️ Chat error:", traceback.format_exc())
-        return {"reply": f"⚠️ Error: {str(e)}", "progress": []}
+        return {"reply": f"⚠️ Error: {str(e)}", "progress": [], "ready_prompt": None}
 
 # ✅ Binary quiz endpoint
 @app.get("/quiz/binary")

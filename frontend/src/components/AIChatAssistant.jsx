@@ -3,14 +3,16 @@ import axios from 'axios';
 import ReactMarkdown from 'react-markdown';
 import welcomeMessages from '../data/ai/welcomeMessages';
 import learningObjectives from '../data/ai/learningObjectives';
+import BinaryQuizModal from './digital_electronics/number_systems/BinaryQuizModal';
 
 const AIChatAssistant = ({ topicId = "general", onProgressUpdate }) => {
   const [input, setInput] = useState('');
   const [chat, setChat] = useState([]);
   const [loading, setLoading] = useState(false);
   const [objectiveProgress, setObjectiveProgress] = useState([]);
-  const [mode, setMode] = useState(null);
-  const [awaitingAnswer, setAwaitingAnswer] = useState(false);
+  const [aiScore, setAiScore] = useState(null);
+  const [quizScore, setQuizScore] = useState(null);
+  const [quizOpen, setQuizOpen] = useState(false);
   const chatContainerRef = useRef(null);
 
   const formattedTitle = topicId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
@@ -58,45 +60,58 @@ const AIChatAssistant = ({ topicId = "general", onProgressUpdate }) => {
         objectives: objectives
       });
 
-      const botReply = { role: 'assistant', content: res.data.reply };
-      setChat(prev => [...prev, botReply]);
+      let finalReply = res.data.reply;
+      const progressFlags = res.data.progress || [];
 
-      if (res.data.progress && Array.isArray(res.data.progress)) {
-        setObjectiveProgress(res.data.progress);
-        const newGrade = calculateGrade(res.data.progress);
+      if (Array.isArray(progressFlags)) {
+        const newScore = calculateGrade(progressFlags);
+
+        if (newScore >= 80 && (aiScore === null || aiScore < 80)) {
+          finalReply += '\n\n✅ It looks like you\'re ready to take the quiz!';
+        }
+
+        setObjectiveProgress(prev => {
+          return progressFlags.map((newVal, i) => {
+            const oldVal = prev[i];
+            if (oldVal === true) return true;
+            if (newVal === true) return true;
+            if (oldVal === 'partial' && newVal === false) return 'partial';
+            return newVal;
+          });
+        });
+
+        setAiScore(newScore);
+
+        const bestScore = quizScore !== null ? Math.max(quizScore, newScore) : newScore;
         if (typeof onProgressUpdate === 'function') {
-          onProgressUpdate(res.data.progress, newGrade);
+          onProgressUpdate(progressFlags, bestScore);
         }
       }
 
-      setAwaitingAnswer(false);
+      setChat(prev => [...prev, { role: 'assistant', content: finalReply }]);
     } catch (err) {
       console.error("Chat error:", err);
       setChat(prev => [...prev, {
         role: 'assistant',
         content: "⚠️ Sorry, something went wrong."
       }]);
-      setAwaitingAnswer(false);
     } finally {
       setLoading(false);
     }
   };
 
+  const handleQuizComplete = ({ score }) => {
+    setQuizScore(score);
+    const best = aiScore !== null ? Math.max(aiScore, score) : score;
+    if (typeof onProgressUpdate === 'function') {
+      onProgressUpdate(objectiveProgress, best);
+    }
+  };
+
   return (
     <div className="min-h-[95vh] max-h-[120vh] flex flex-col bg-gray-50 rounded shadow">
-      <div className="flex items-center justify-between px-4 mb-2">
-        <h3 className="text-lg font-semibold text-gray-800">Ask the AI Assistant</h3>
-      </div>
 
-      <div
-        ref={chatContainerRef}
-        className="flex-1 overflow-y-auto px-4 pb-4 space-y-2"
-      >
-        {chat.length <= 1 && (
-          <div className="bg-gray-200 p-4 rounded-md shadow-sm">
-            <ReactMarkdown>{welcomeMessage}</ReactMarkdown>
-          </div>
-        )}
+      <div ref={chatContainerRef} className="flex-1 overflow-y-auto px-4 pb-4 space-y-2">
 
         {chat.map((msg, idx) =>
           (idx === 0 && msg.content === welcomeMessage) ? null : (
@@ -130,6 +145,12 @@ const AIChatAssistant = ({ topicId = "general", onProgressUpdate }) => {
           </button>
         </div>
       </div>
+
+      <BinaryQuizModal
+        isOpen={quizOpen}
+        onClose={() => setQuizOpen(false)}
+        onQuizComplete={handleQuizComplete}
+      />
     </div>
   );
 };

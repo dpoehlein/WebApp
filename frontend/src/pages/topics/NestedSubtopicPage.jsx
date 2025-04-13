@@ -10,23 +10,15 @@ import Banner from "../../components/Banner";
 
 import learningObjectives from '../../data/ai/learningObjectives';
 
-// Dynamically register walkthrough components
 const walkthroughComponents = {
   binary: React.lazy(() => import('../../components/digital_electronics/number_systems/BinaryDemo')),
-  // Add more walkthroughs here...
 };
 
-// Dynamically register quiz modals
 const quizModals = {
   binary: React.lazy(() => import('../../components/digital_electronics/number_systems/BinaryQuizModal')),
-  // Add more quiz modals here...
 };
 
-const NestedSubtopicPage = ({
-  topicId: propTopicId,
-  subtopicId: propSubtopicId,
-  nestedSubtopicId: propNestedSubtopicId,
-}) => {
+const NestedSubtopicPage = ({ topicId: propTopicId, subtopicId: propSubtopicId, nestedSubtopicId: propNestedSubtopicId }) => {
   const routeParams = useParams();
   const topicId = propTopicId || routeParams.topicId;
   const subtopicId = propSubtopicId || routeParams.subtopicId;
@@ -36,7 +28,12 @@ const NestedSubtopicPage = ({
   const [practiceData, setPracticeData] = useState(null);
   const [videoData, setVideoData] = useState(null);
   const [objectiveProgress, setObjectiveProgress] = useState([]);
+  const [quizScore, setQuizScore] = useState(0);
+  const [aiScore, setAIScore] = useState(0);
   const [isQuizOpen, setIsQuizOpen] = useState(false);
+
+  const QuizModal = quizModals[nestedSubtopicId] || null;
+  const WalkthroughComponent = walkthroughComponents[nestedSubtopicId] || null;
 
   useEffect(() => {
     Promise.all([
@@ -56,26 +53,20 @@ const NestedSubtopicPage = ({
   const topicName = topicId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   const subtopicName = subtopicId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 
-  const WalkthroughComponent = walkthroughComponents[nestedSubtopicId] || null;
-  const QuizModal = quizModals[nestedSubtopicId] || null;
-
   const completed = objectiveProgress.filter(p => p === true).length;
   const total = objectives.length;
-  const overallGrade = total > 0 ? Math.round((completed / total) * 100) : 0;
+  const overallGrade = total > 0 ? Math.max(Math.round((completed / total) * 100), quizScore, aiScore) : Math.max(quizScore, aiScore);
 
   const handleQuizCompletion = ({ score, objectiveKeys }) => {
-    setIsQuizOpen(false);
-
+    setQuizScore(score);
     setObjectiveProgress((prev) => {
       const updated = [...prev];
-
       objectiveKeys.forEach((key) => {
         const index = objectives.findIndex((obj) => obj.key === key);
         if (index !== -1) {
           updated[index] = true;
         }
       });
-
       return updated;
     });
   };
@@ -100,15 +91,12 @@ const NestedSubtopicPage = ({
       />
 
       <main className="flex-1 w-full px-6 py-8 flex flex-col lg:flex-row gap-6">
-        {/* LEFT COLUMN */}
         <div className="w-full lg:w-1/2 overflow-y-auto pr-2">
           <ContentContainer className="max-w-none">
-
             <p className="text-gray-700 text-lg font-medium mb-4">
               {subtopicData.description}
             </p>
 
-            {/* Progress & Learning Objectives */}
             {objectives.length > 0 && (
               <div className="mb-6">
                 <div className="mb-4 p-4 rounded bg-white border shadow">
@@ -120,9 +108,9 @@ const NestedSubtopicPage = ({
                       Topic Grade: {overallGrade}%
                     </div>
                     <div className="text-sm text-gray-600 space-x-4">
-                      <span>🟢 Completed</span>
-                      <span>🟡 Showing Progress</span>
-                      <span>🔵 Pending</span>
+                      <span>🟢 Ready for Quiz</span>
+                      <span>🟡 Making Progress</span>
+                      <span>🔵 Needs Work</span>
                     </div>
                   </div>
                 </div>
@@ -143,26 +131,6 @@ const NestedSubtopicPage = ({
               </div>
             )}
 
-            {/* Quiz Button & Modal (dynamic) */}
-            {QuizModal && (
-              <div className="text-center mb-6">
-                <button
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-6 rounded-lg shadow-md transition duration-200"
-                  onClick={() => setIsQuizOpen(true)}
-                >
-                  🧠 Take {subtopicData.title} Quiz
-                </button>
-                <Suspense fallback={<div>Loading quiz...</div>}>
-                  <QuizModal
-                    isOpen={isQuizOpen}
-                    onClose={() => setIsQuizOpen(false)}
-                    onQuizComplete={handleQuizCompletion}
-                  />
-                </Suspense>
-              </div>
-            )}
-
-            {/* Walkthrough / Practice Problems */}
             {WalkthroughComponent ? (
               <Suspense fallback={<div>Loading visual...</div>}>
                 <div className="mt-6">
@@ -184,7 +152,6 @@ const NestedSubtopicPage = ({
               </div>
             ) : null}
 
-            {/* Video Section */}
             {videoData?.videos && (
               <div className="bg-white rounded shadow p-6 border mt-6">
                 <h2 className="text-lg font-semibold mb-4">📺 Recommended Videos</h2>
@@ -206,16 +173,53 @@ const NestedSubtopicPage = ({
                 </ul>
               </div>
             )}
-
           </ContentContainer>
         </div>
 
-        {/* RIGHT COLUMN: AI Assistant */}
-        <div className="w-full lg:w-1/2 flex flex-col min-h-[70vh]">
+        <div className="w-full lg:w-1/2 flex flex-col min-h-[70vh] space-y-4">
+          <div className="bg-white p-4 rounded shadow-md border border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-lg font-semibold">
+                AI Score: <span className="text-green-600 text-xl font-bold">{aiScore}%</span>
+              </p>
+              <p className="text-lg font-semibold">
+                Quiz Score: <span className="text-purple-600 text-xl font-bold">{quizScore}%</span>
+              </p>
+            </div>
+            <button
+              className="mt-4 sm:mt-0 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-6 rounded-lg shadow-md transition duration-200"
+              onClick={() => setIsQuizOpen(true)}
+            >
+              🧠 Take {subtopicData.title} Quiz
+            </button>
+          </div>
+
+          {QuizModal && (
+            <Suspense fallback={<div>Loading quiz...</div>}>
+              <QuizModal
+                isOpen={isQuizOpen}
+                onClose={() => setIsQuizOpen(false)}
+                onQuizComplete={handleQuizCompletion}
+              />
+            </Suspense>
+          )}
+
+          <div className="bg-white p-4 rounded shadow-md border border-gray-200">
+            <h2 className="text-lg font-semibold mb-2">Ask the AI Assistant</h2>
+            <p className="mb-2 text-sm text-gray-700">
+              🎓 Welcome! I'm your AI Assistant here to help you learn about <strong>{subtopicData.title}</strong>.<br />
+              You can ask questions, practice problems, or explore concepts.
+            </p>
+            <p className="text-sm text-gray-700">
+              🧠 At any point, you can take the <strong>{subtopicData.title} Quiz</strong> to earn credit toward completing this module, or I will track your progress and assign a grade based on our conversation.
+            </p>
+          </div>
+
           <AIChatAssistant
             topicId={nestedSubtopicId}
             objectives={objectives}
             onProgressUpdate={setObjectiveProgress}
+            onScoreUpdate={setAIScore}
           />
         </div>
       </main>
