@@ -49,13 +49,14 @@ const NestedSubtopicPage = ({ topicId: propTopicId, subtopicId: propSubtopicId, 
       .catch((err) => console.error("Failed to load nested subtopic data:", err));
   }, [topicId, subtopicId, nestedSubtopicId]);
 
-  const objectives = learningObjectives[nestedSubtopicId] || [];
+  const objectives = (learningObjectives[topicId]?.[subtopicId]?.[nestedSubtopicId]) || [];
   const topicName = topicId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   const subtopicName = subtopicId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 
   const completed = objectiveProgress.filter(p => p === true).length;
   const total = objectives.length;
-  const overallGrade = total > 0 ? Math.max(Math.round((completed / total) * 100), quizScore, aiScore) : Math.max(quizScore, aiScore);
+  const aiPercent = total > 0 ? Math.round((completed / total) * 100) : 0;
+  const overallGrade = Math.max(aiPercent, quizScore || 0, aiScore || 0);
 
   const handleQuizCompletion = ({ score, objectiveKeys }) => {
     setQuizScore(score);
@@ -108,7 +109,7 @@ const NestedSubtopicPage = ({ topicId: propTopicId, subtopicId: propSubtopicId, 
                       Topic Grade: {overallGrade}%
                     </div>
                     <div className="text-sm text-gray-600 space-x-4">
-                      <span>🟢 Ready for Quiz</span>
+                      <span>🟢 Completed</span>
                       <span>🟡 Making Progress</span>
                       <span>🔵 Needs Work</span>
                     </div>
@@ -204,19 +205,10 @@ const NestedSubtopicPage = ({ topicId: propTopicId, subtopicId: propSubtopicId, 
             </Suspense>
           )}
 
-          <div className="bg-white p-4 rounded shadow-md border border-gray-200">
-            <h2 className="text-lg font-semibold mb-2">Ask the AI Assistant</h2>
-            <p className="mb-2 text-sm text-gray-700">
-              🎓 Welcome! I'm your AI Assistant here to help you learn about <strong>{subtopicData.title}</strong>.<br />
-              You can ask questions, practice problems, or explore concepts.
-            </p>
-            <p className="text-sm text-gray-700">
-              🧠 At any point, you can take the <strong>{subtopicData.title} Quiz</strong> to earn credit toward completing this module, or I will track your progress and assign a grade based on our conversation.
-            </p>
-          </div>
-
           <AIChatAssistant
-            topicId={nestedSubtopicId}
+            topicId={topicId}
+            subtopicId={subtopicId}
+            nestedSubtopicId={nestedSubtopicId}
             objectives={objectives}
             onProgressUpdate={setObjectiveProgress}
             onScoreUpdate={setAIScore}

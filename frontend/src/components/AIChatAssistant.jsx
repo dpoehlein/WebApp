@@ -1,3 +1,5 @@
+// C:/SST/WebApp/frontend/src/components/AIChatAssistant.jsx
+
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import ReactMarkdown from 'react-markdown';
@@ -5,7 +7,7 @@ import welcomeMessages from '../data/ai/welcomeMessages';
 import learningObjectives from '../data/ai/learningObjectives';
 import BinaryQuizModal from './digital_electronics/number_systems/BinaryQuizModal';
 
-const AIChatAssistant = ({ topicId = "general", onProgressUpdate }) => {
+const AIChatAssistant = ({ topicId = "general", subtopicId = "number_systems", nestedSubtopicId = "binary", onProgressUpdate }) => {
   const [input, setInput] = useState('');
   const [chat, setChat] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -14,11 +16,13 @@ const AIChatAssistant = ({ topicId = "general", onProgressUpdate }) => {
   const [quizScore, setQuizScore] = useState(null);
   const [quizOpen, setQuizOpen] = useState(false);
   const chatContainerRef = useRef(null);
+  const [objectiveIndex, setObjectiveIndex] = useState(0);
+  const [showWelcomeBox, setShowWelcomeBox] = useState(true);
 
-  const formattedTitle = topicId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  const formattedTitle = nestedSubtopicId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 
-  const welcomeMessageFn = welcomeMessages[topicId];
-  const objectives = learningObjectives[topicId] || [];
+  const welcomeMessageFn = welcomeMessages[nestedSubtopicId];
+  const objectives = (learningObjectives[topicId]?.[subtopicId]?.[nestedSubtopicId]) || [];
 
   const welcomeMessage = welcomeMessageFn
     ? (typeof welcomeMessageFn === 'function' ? welcomeMessageFn(formattedTitle) : welcomeMessageFn)
@@ -26,9 +30,9 @@ const AIChatAssistant = ({ topicId = "general", onProgressUpdate }) => {
 
   useEffect(() => {
     if (chat.length === 0) {
-      setChat([{ role: 'assistant', content: welcomeMessage }]);
+      setChat([]); // Start empty, display welcome box separately
     }
-  }, [chat]);
+  }, []);
 
   useEffect(() => {
     if (chatContainerRef.current) {
@@ -55,9 +59,9 @@ const AIChatAssistant = ({ topicId = "general", onProgressUpdate }) => {
     try {
       const res = await axios.post('http://localhost:8000/chat', {
         message: messageToSend,
-        topic_id: topicId,
+        topic_id: nestedSubtopicId,
         history: updatedChat,
-        objectives: objectives
+        objectives
       });
 
       let finalReply = res.data.reply;
@@ -80,15 +84,16 @@ const AIChatAssistant = ({ topicId = "general", onProgressUpdate }) => {
           });
         });
 
-        setAiScore(newScore);
-
         const bestScore = quizScore !== null ? Math.max(quizScore, newScore) : newScore;
         if (typeof onProgressUpdate === 'function') {
           onProgressUpdate(progressFlags, bestScore);
         }
+
+        setAiScore(newScore);
       }
 
       setChat(prev => [...prev, { role: 'assistant', content: finalReply }]);
+
     } catch (err) {
       console.error("Chat error:", err);
       setChat(prev => [...prev, {
@@ -111,17 +116,22 @@ const AIChatAssistant = ({ topicId = "general", onProgressUpdate }) => {
   return (
     <div className="min-h-[95vh] max-h-[120vh] flex flex-col bg-gray-50 rounded shadow">
 
-      <div ref={chatContainerRef} className="flex-1 overflow-y-auto px-4 pb-4 space-y-2">
+      {showWelcomeBox && (
+        <div className="bg-gray-200 px-4 py-3 mb-2 rounded-md shadow-sm text-sm text-gray-800 w-full">
+          <p>🎓 <strong>Welcome!</strong> I'm your AI Assistant here to help you learn about <strong>{formattedTitle}</strong>.</p>
+          <p>You can ask questions, practice problems, or explore concepts.</p>
+          <p>🧠 At any point, you can take the <strong>{formattedTitle} Quiz</strong> to earn credit toward completing this module.</p>
+        </div>
+      )}
 
-        {chat.map((msg, idx) =>
-          (idx === 0 && msg.content === welcomeMessage) ? null : (
-            <div key={idx} className={`text-sm ${msg.role === 'user' ? 'text-right' : 'text-left'}`}>
-              <div className={`inline-block px-3 py-2 rounded text-left max-w-full ${msg.role === 'user' ? 'bg-blue-200' : 'bg-gray-200'}`}>
-                <ReactMarkdown>{msg.content}</ReactMarkdown>
-              </div>
+      <div ref={chatContainerRef} className="flex-1 overflow-y-auto px-4 pb-4 space-y-2">
+        {chat.map((msg, idx) => (
+          <div key={idx} className={`text-sm ${msg.role === 'user' ? 'text-right' : 'text-left'}`}>
+            <div className={`inline-block px-3 py-2 rounded text-left max-w-full ${msg.role === 'user' ? 'bg-blue-200' : 'bg-gray-200'}`}>
+              <ReactMarkdown>{msg.content}</ReactMarkdown>
             </div>
-          )
-        )}
+          </div>
+        ))}
         {loading && <div className="text-center text-gray-500">Thinking...</div>}
       </div>
 
