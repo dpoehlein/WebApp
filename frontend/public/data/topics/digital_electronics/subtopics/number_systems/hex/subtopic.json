@@ -1,0 +1,10 @@
+{
+  "title": "Hexadecimal Numbers",
+  "description": "Learn to convert between decimal and hexadecimal numbers and understand their role in computing systems.",
+  "objectives": [
+    "Understand the base-16 number system",
+    "Convert decimal to hexadecimal",
+    "Convert hexadecimal to decimal",
+    "Recognize use of hex in memory addresses and color codes"
+  ]
+}

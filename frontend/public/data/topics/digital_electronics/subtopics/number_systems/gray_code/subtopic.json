@@ -1,0 +1,10 @@
+{
+  "title": "Gray Code",
+  "description": "Study Gray Code and its application in minimizing errors during binary transitions.",
+  "objectives": [
+    "Understand what Gray Code is",
+    "Convert binary to Gray Code",
+    "Convert Gray Code to binary",
+    "Identify real-world uses such as rotary encoders"
+  ]
+}

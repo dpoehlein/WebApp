@@ -1,0 +1,10 @@
+{
+  "title": "Binary Coded Decimal (BCD)",
+  "description": "Explore how BCD encodes decimal digits using binary, and how it's used in digital systems like calculators.",
+  "objectives": [
+    "Understand what BCD is and why it’s used",
+    "Convert decimal numbers to BCD",
+    "Convert BCD to decimal",
+    "Recognize limitations and applications of BCD"
+  ]
+}

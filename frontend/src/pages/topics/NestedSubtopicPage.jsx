@@ -12,10 +12,18 @@ import learningObjectives from '../../data/ai/learningObjectives';
 
 const walkthroughComponents = {
   binary: React.lazy(() => import('../../components/digital_electronics/number_systems/BinaryDemo')),
+  octal: React.lazy(() => import('../../components/digital_electronics/number_systems/OctalDemo')),
+  hexadecimal: React.lazy(() => import('../../components/digital_electronics/number_systems/HexadecimalDemo')),
+  bcd: React.lazy(() => import('../../components/digital_electronics/number_systems/BcdDemo')),
+  gray_code: React.lazy(() => import('../../components/digital_electronics/number_systems/GrayCodeDemo')),
 };
 
 const quizModals = {
-  binary: React.lazy(() => import('../../components/digital_electronics/number_systems/BinaryQuizModal')),
+  binary: React.lazy(() => import('../../components/digital_electronics/number_systems/BinaryQuizModal.jsx')),
+  octal: React.lazy(() => import('../../components/digital_electronics/number_systems/OctalQuizModal.jsx')),
+  hexadecimal: React.lazy(() => import('../../components/digital_electronics/number_systems/HexadecimalQuizModal.jsx')),
+  bcd: React.lazy(() => import('../../components/digital_electronics/number_systems/BcdQuizModal.jsx')),
+  gray_code: React.lazy(() => import('../../components/digital_electronics/number_systems/GraycodeQuizModal.jsx')),
 };
 
 const NestedSubtopicPage = ({ topicId: propTopicId, subtopicId: propSubtopicId, nestedSubtopicId: propNestedSubtopicId }) => {
@@ -222,4 +230,3 @@ const NestedSubtopicPage = ({ topicId: propTopicId, subtopicId: propSubtopicId, 
 };
 
 export default NestedSubtopicPage;
-

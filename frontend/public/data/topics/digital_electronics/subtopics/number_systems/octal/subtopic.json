@@ -1,0 +1,10 @@
+{
+  "title": "Octal Numbers",
+  "description": "Explore how to work with octal numbers and convert between decimal and octal representations.",
+  "objectives": [
+    "Understand the base-8 number system",
+    "Convert decimal to octal",
+    "Convert octal to decimal",
+    "Practice using octal numbers in digital logic"
+  ]
+}

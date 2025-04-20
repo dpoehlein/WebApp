@@ -19,7 +19,6 @@ function App() {
         <Route path="/topics/:topicId" element={<TopicPage />} />
 
         <Route
-          path="/topics/digital_electronics/number_systems/binary"
           element={<BinaryPage />}
         />
 
