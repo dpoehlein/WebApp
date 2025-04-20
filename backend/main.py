@@ -1,6 +1,7 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File, Request
+from fastapi import FastAPI, HTTPException, UploadFile, File, Request 
 from backend.database import students_collection, progress_collection, assignment_grades_collection
 from backend.models import Student, Progress
+from backend import students
 from bson import ObjectId
 
 from fastapi.middleware.cors import CORSMiddleware
@@ -181,13 +182,10 @@ async def chat(request: ChatRequest):
                     print("⚠️ Failed to parse eval:", e)
                     progress_flags = [False] * len(request.objectives)
 
-        # ✅ Detect if student is ready to take quiz
+        # ✅ Detect if all objectives are complete
         ready_prompt = None
-        if progress_flags:
-            total = len(progress_flags)
-            complete = sum(1 for p in progress_flags if p is True)
-            if total > 0 and complete / total >= 0.8:
-                ready_prompt = "🎯 It looks like you've mastered most of this topic. Ready to test yourself? Go ahead and take the quiz when you're ready!"
+        if progress_flags and all(p is True for p in progress_flags):
+            ready_prompt = "✅ Awesome work! You've demonstrated a strong understanding of this topic. You can take the quiz to challenge yourself further, or just keep exploring other pages—I'll be here to help on your next topic!"
 
         return {
             "reply": reply,
@@ -234,7 +232,6 @@ async def dynamic_grader(
 
         result = module.grade(contents)
 
-        # ✅ Save grade to MongoDB if student_id is passed
         student_id = request.query_params.get("student_id")
         if student_id:
             await assignment_grades_collection.update_one(
@@ -258,3 +255,60 @@ async def dynamic_grader(
     except Exception as e:
         print("⚠️ Grading error:", traceback.format_exc())
         raise HTTPException(status_code=500, detail="Failed to grade assignment")
+
+# ✅ Score update model for detailed subtopic progress
+class ScoreUpdate(BaseModel):
+    user_id: str
+    topic: str
+    subtopic: str
+    nested_subtopic: str
+    quiz_score: int = 0
+    ai_score: int = 0
+    assignment_score: int = 0
+    activity_id: str = ""
+
+# ✅ Insert or update per-subtopic score with upsert logic
+@app.post("/save-progress")
+async def save_nested_progress(data: ScoreUpdate):
+    query = {
+        "user_id": data.user_id,
+        "topic": data.topic,
+        "subtopic": data.subtopic,
+        "nested_subtopic": data.nested_subtopic
+    }
+
+    existing = await progress_collection.find_one(query)
+
+    if existing:
+        updated = {
+            "quiz_score": max(existing.get("quiz_score", 0), data.quiz_score),
+            "ai_score": max(existing.get("ai_score", 0), data.ai_score),
+            "assignment_score": max(existing.get("assignment_score", 0), data.assignment_score),
+            "activity_id": data.activity_id,
+            "updated_at": datetime.utcnow()
+        }
+        await progress_collection.update_one(query, {"$set": updated})
+        return {"message": "Progress updated"}
+    
+    else:
+        record = {
+            **query,
+            "quiz_score": data.quiz_score,
+            "ai_score": data.ai_score,
+            "assignment_score": data.assignment_score,
+            "activity_id": data.activity_id,
+            "updated_at": datetime.utcnow()
+        }
+        await progress_collection.insert_one(record)
+        return {"message": "Progress created"}
+
+app.include_router(students.router)
+
+@app.get("/progress-all/{user_id}")
+async def get_user_progress(user_id: str):
+    results = []
+    cursor = progress_collection.find({"user_id": user_id})
+    async for doc in cursor:
+        doc["_id"] = str(doc["_id"])
+        results.append(doc)
+    return results

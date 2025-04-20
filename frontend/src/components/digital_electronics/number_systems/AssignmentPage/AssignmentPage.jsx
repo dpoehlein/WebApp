@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import DownloadButton from './DownloadButton';
-import FileUploadAIChat from './FileUploadAIChat';
+import AssignmentUploadAIChat from './AssignmentUploadAIChat';
 import instructions from './instructions';
 
 export default function AssignmentPage() {
@@ -40,7 +40,7 @@ export default function AssignmentPage() {
 
             <DownloadButton />
             <div className="my-8 border-t border-gray-300"></div>
-            <FileUploadAIChat />
+            <AssignmentUploadAIChat />
         </div>
     );
 }

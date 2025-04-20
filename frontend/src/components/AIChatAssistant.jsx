@@ -1,5 +1,3 @@
-// C:/SST/WebApp/frontend/src/components/AIChatAssistant.jsx
-
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import ReactMarkdown from 'react-markdown';
@@ -7,30 +5,36 @@ import welcomeMessages from '../data/ai/welcomeMessages';
 import learningObjectives from '../data/ai/learningObjectives';
 import BinaryQuizModal from './digital_electronics/number_systems/BinaryQuizModal';
 
-const AIChatAssistant = ({ topicId = "general", subtopicId = "number_systems", nestedSubtopicId = "binary", onProgressUpdate }) => {
+const AIChatAssistant = ({
+  topicId = "general",
+  subtopicId = "number_systems",
+  nestedSubtopicId = "binary",
+  onProgressUpdate,
+  onScoreUpdate
+}) => {
   const [input, setInput] = useState('');
   const [chat, setChat] = useState([]);
   const [loading, setLoading] = useState(false);
   const [objectiveProgress, setObjectiveProgress] = useState([]);
+  const [objectiveEvidence, setObjectiveEvidence] = useState({});
   const [aiScore, setAiScore] = useState(null);
   const [quizScore, setQuizScore] = useState(null);
   const [quizOpen, setQuizOpen] = useState(false);
   const chatContainerRef = useRef(null);
-  const [objectiveIndex, setObjectiveIndex] = useState(0);
   const [showWelcomeBox, setShowWelcomeBox] = useState(true);
+  const [firstPromptSent, setFirstPromptSent] = useState(false);
+  const [completionMessageSent, setCompletionMessageSent] = useState(false);
 
   const formattedTitle = nestedSubtopicId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-
   const welcomeMessageFn = welcomeMessages[nestedSubtopicId];
   const objectives = (learningObjectives[topicId]?.[subtopicId]?.[nestedSubtopicId]) || [];
-
   const welcomeMessage = welcomeMessageFn
     ? (typeof welcomeMessageFn === 'function' ? welcomeMessageFn(formattedTitle) : welcomeMessageFn)
     : welcomeMessages['general'](formattedTitle);
 
   useEffect(() => {
     if (chat.length === 0) {
-      setChat([]); // Start empty, display welcome box separately
+      setChat([]);
     }
   }, []);
 
@@ -40,7 +44,36 @@ const AIChatAssistant = ({ topicId = "general", subtopicId = "number_systems", n
     }
   }, [chat, loading]);
 
-  const calculateGrade = (progressFlags) => {
+  
+  useEffect(() => {
+    if (aiScore !== null && aiScore > 0) {
+      const saveAIScore = async () => {
+        try {
+          await fetch("http://localhost:8000/save-progress", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              user_id: localStorage.getItem("student_id"), // Replace with actual user ID from session/auth
+              topic: "digital_electronics",
+              subtopic: "number_systems",
+              nested_subtopic: "binary",
+              quiz_score: 0,
+              ai_score: aiScore,
+              assignment_score: 0,
+              activity_id: "de_ns_bin_001"
+            }),
+          });
+          console.log("✅ AI score saved.");
+        } catch (error) {
+          console.error("❌ Failed to save AI score:", error);
+        }
+      };
+      saveAIScore();
+    }
+  }, [aiScore]);
+
+
+const calculateGrade = (progressFlags) => {
     const total = progressFlags.length;
     const score = progressFlags.reduce((acc, p) => acc + (p === true ? 1 : p === 'partial' ? 0.5 : 0), 0);
     return total > 0 ? Math.round((score / total) * 100) : 0;
@@ -57,43 +90,65 @@ const AIChatAssistant = ({ topicId = "general", subtopicId = "number_systems", n
     setLoading(true);
 
     try {
-      const res = await axios.post('http://localhost:8000/chat', {
-        message: messageToSend,
-        topic_id: nestedSubtopicId,
-        history: updatedChat,
-        objectives
-      });
+      let modifiedMessage = messageToSend.toLowerCase();
+      let reply = '';
 
-      let finalReply = res.data.reply;
-      const progressFlags = res.data.progress || [];
-
-      if (Array.isArray(progressFlags)) {
-        const newScore = calculateGrade(progressFlags);
-
-        if (newScore >= 80 && (aiScore === null || aiScore < 80)) {
-          finalReply += '\n\n✅ It looks like you\'re ready to take the quiz!';
-        }
-
-        setObjectiveProgress(prev => {
-          return progressFlags.map((newVal, i) => {
-            const oldVal = prev[i];
-            if (oldVal === true) return true;
-            if (newVal === true) return true;
-            if (oldVal === 'partial' && newVal === false) return 'partial';
-            return newVal;
-          });
+      if (!firstPromptSent && /\b(quiz|help|practice)\b/.test(modifiedMessage)) {
+        reply = "Let's begin with the basics: What is the difference between the decimal and binary number systems?";
+        setFirstPromptSent(true);
+      } else {
+        const res = await axios.post('http://localhost:8000/chat', {
+          message: messageToSend,
+          topic_id: nestedSubtopicId,
+          history: updatedChat,
+          objectives
         });
 
-        const bestScore = quizScore !== null ? Math.max(quizScore, newScore) : newScore;
-        if (typeof onProgressUpdate === 'function') {
-          onProgressUpdate(progressFlags, bestScore);
-        }
+        reply = res.data.reply;
+        const progressFlags = res.data.progress || [];
 
-        setAiScore(newScore);
+        if (Array.isArray(progressFlags)) {
+          const newScore = calculateGrade(progressFlags);
+
+          setObjectiveEvidence(prevEvidence => {
+            const updatedEvidence = { ...prevEvidence };
+            progressFlags.forEach((flag, i) => {
+              if (flag === true) {
+                updatedEvidence[i] = (updatedEvidence[i] || 0) + 1;
+              }
+            });
+
+            setObjectiveProgress(prevProgress => {
+              return progressFlags.map((flag, i) => {
+                const count = updatedEvidence[i] || 0;
+                if (prevProgress[i] === true) return true;
+                if (count >= 2) return true;
+                if (flag === true || flag === 'partial') return 'partial';
+                return prevProgress[i] || false;
+              });
+            });
+
+            return updatedEvidence;
+          });
+
+          setAiScore(prevScore => {
+            const updatedScore = Math.max(prevScore ?? 0, newScore);
+            if (typeof onScoreUpdate === 'function') onScoreUpdate(updatedScore);
+            return updatedScore;
+          });
+
+          const bestScore = quizScore !== null ? Math.max(quizScore, newScore) : newScore;
+          if (typeof onProgressUpdate === 'function') onProgressUpdate(progressFlags, bestScore);
+
+          const allCompleted = progressFlags.length > 0 && progressFlags.every(p => p === true);
+          if (allCompleted && !completionMessageSent) {
+            reply += "\n\n✅ Awesome work! You've demonstrated a strong understanding of this topic. You can take the quiz to challenge yourself further, or just keep exploring other pages—I'll be here to help on your next topic!";
+            setCompletionMessageSent(true);
+          }
+        }
       }
 
-      setChat(prev => [...prev, { role: 'assistant', content: finalReply }]);
-
+      setChat(prev => [...prev, { role: 'assistant', content: reply }]);
     } catch (err) {
       console.error("Chat error:", err);
       setChat(prev => [...prev, {
@@ -108,19 +163,17 @@ const AIChatAssistant = ({ topicId = "general", subtopicId = "number_systems", n
   const handleQuizComplete = ({ score }) => {
     setQuizScore(score);
     const best = aiScore !== null ? Math.max(aiScore, score) : score;
-    if (typeof onProgressUpdate === 'function') {
-      onProgressUpdate(objectiveProgress, best);
-    }
+    if (typeof onProgressUpdate === 'function') onProgressUpdate(objectiveProgress, best);
+    if (typeof onScoreUpdate === 'function') onScoreUpdate(best);
   };
 
   return (
     <div className="min-h-[95vh] max-h-[120vh] flex flex-col bg-gray-50 rounded shadow">
-
       {showWelcomeBox && (
         <div className="bg-gray-200 px-4 py-3 mb-2 rounded-md shadow-sm text-sm text-gray-800 w-full">
           <p>🎓 <strong>Welcome!</strong> I'm your AI Assistant here to help you learn about <strong>{formattedTitle}</strong>.</p>
           <p>You can ask questions, practice problems, or explore concepts.</p>
-          <p>🧠 At any point, you can take the <strong>{formattedTitle} Quiz</strong> to earn credit toward completing this module.</p>
+          <p>🧠 At any point, you can take the <strong>{formattedTitle} Quiz</strong> to earn credit toward completing this module. Scroll down to ask questions in chat box.</p>
         </div>
       )}
 

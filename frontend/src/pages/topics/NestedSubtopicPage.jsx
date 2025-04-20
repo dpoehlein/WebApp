@@ -212,6 +212,7 @@ const NestedSubtopicPage = ({ topicId: propTopicId, subtopicId: propSubtopicId, 
             objectives={objectives}
             onProgressUpdate={setObjectiveProgress}
             onScoreUpdate={setAIScore}
+            QuizModal={QuizModal}
           />
         </div>
       </main>
@@ -221,3 +222,4 @@ const NestedSubtopicPage = ({ topicId: propTopicId, subtopicId: propSubtopicId, 
 };
 
 export default NestedSubtopicPage;
+

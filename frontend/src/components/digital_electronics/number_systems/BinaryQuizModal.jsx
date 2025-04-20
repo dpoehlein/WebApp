@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
 const BinaryQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
   const [questions, setQuestions] = useState([]);
@@ -119,6 +119,33 @@ const BinaryQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
     }
   };
 
+  useEffect(() => {
+    if (score !== null && score > 0) {
+      const saveQuizScore = async () => {
+        try {
+          await fetch("http://localhost:8000/save-progress", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              user_id: localStorage.getItem("student_id"), // Replace this with actual user ID from context/auth
+              topic: "digital_electronics",
+              subtopic: "number_systems",
+              nested_subtopic: "binary",
+              quiz_score: score,
+              ai_score: 0,
+              assignment_score: 0,
+              activity_id: "de_ns_bin_001"
+            }),
+          });
+          console.log("✅ Quiz score saved to backend.");
+        } catch (error) {
+          console.error("❌ Failed to save quiz score:", error);
+        }
+      };
+      saveQuizScore();
+    }
+  }, [score]);
+
   if (!isOpen) return null;
 
   return (
@@ -168,10 +195,10 @@ const BinaryQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
                   disabled={submitted}
                 />
                 {submitted && (
-                  <p className={`mt-1 text-sm ${answers[i]?.trim() === q.correctAnswer ? 'text-green-600' : 'text-red-600'}`}>
+                  <p className={`mt-1 text-sm \${answers[i]?.trim() === q.correctAnswer ? 'text-green-600' : 'text-red-600'}`}>
                     {answers[i]?.trim() === q.correctAnswer
                       ? '✅ Correct'
-                      : `❌ Correct Answer: ${q.correctAnswer}`}
+                      : `❌ Correct Answer: \${q.correctAnswer}`}
                   </p>
                 )}
               </div>

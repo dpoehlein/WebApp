@@ -5,6 +5,9 @@ import SubtopicPage from './pages/topics/SubtopicPage';
 import NestedSubtopicPage from './pages/topics/NestedSubtopicPage';
 
 // ✅ Custom routes
+import AdminLogin from './pages/AdminLogin';
+import AdminPanel from './pages/AdminPanel';
+import Dashboard from './pages/Dashboard';
 import BinaryPage from './pages/topics/digital_electronics/subtopics/number_systems/binary/binary';
 import AssignmentPage from './components/digital_electronics/number_systems/AssignmentPage/AssignmentPage';
 
@@ -26,6 +29,13 @@ function App() {
         />
 
         <Route path="/topics/:topicId/:subtopicId" element={<SubtopicPage />} />
+
+        {/* ✅ Admin Panel route */}
+        <Route path="/admin" element={<AdminPanel />} />
+
+        {/* ✅ Dashboard route */}
+        <Route path="/admin-login" element={<AdminLogin />} />
+        <Route path="/dashboard" element={<Dashboard />} />
 
         {/* ✅ New assignment route */}
         <Route

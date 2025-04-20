@@ -1,4 +1,3 @@
-// src/pages/Home.jsx
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import Footer from "../components/Footer";
@@ -9,33 +8,53 @@ import {
 } from "react-icons/fa";
 
 const Home = () => {
-  const [year, setYear] = useState(new Date().getFullYear());
-  const [grades, setGrades] = useState([]);
-  const studentId = localStorage.getItem('student_id'); // Or use context if available
+  const [progressData, setProgressData] = useState([]);
+  const studentId = localStorage.getItem("student_id");
+  const [student, setStudent] = useState(null);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      const now = new Date();
-      if (now.getFullYear() !== year) {
-        setYear(now.getFullYear());
-      }
-    }, 1000 * 60 * 60 * 24);
-    return () => clearInterval(interval);
-  }, [year]);
-
-  useEffect(() => {
-    const fetchGrades = async () => {
+    const fetchStudent = async () => {
       if (!studentId) return;
       try {
-        const res = await fetch(`http://localhost:8000/grades/${studentId}`);
+        const res = await fetch(`http://localhost:8000/students/${studentId}`);
         const data = await res.json();
-        setGrades(data);
+        setStudent(data);
       } catch (err) {
-        console.error("Error fetching grades:", err);
+        console.error("Error fetching student info:", err);
       }
     };
-    fetchGrades();
+    fetchStudent();
   }, []);
+
+
+  useEffect(() => {
+    const fetchProgress = async () => {
+      if (!studentId) return;
+      try {
+        const res = await fetch(`http://localhost:8000/progress-all/${studentId}`);
+        const data = await res.json();
+        setProgressData(data);
+      } catch (err) {
+        console.error("Error fetching progress:", err);
+      }
+    };
+    fetchProgress();
+  }, []);
+
+  const getStatus = (entry) => {
+    const scores = [entry.quiz_score, entry.ai_score, entry.assignment_score];
+    const definedScores = scores.filter(s => typeof s === 'number' && s > 0);
+    if (definedScores.length === 3 && definedScores.every(s => s >= 80)) return "✅";
+    if (definedScores.length > 0) return "🔄";
+    return "⏳";
+  };
+
+  const nestedSubtopicsBySubtopic = {};
+  progressData.forEach(entry => {
+    const key = `${entry.topic}/${entry.subtopic}`;
+    if (!nestedSubtopicsBySubtopic[key]) nestedSubtopicsBySubtopic[key] = [];
+    nestedSubtopicsBySubtopic[key].push(entry);
+  });
 
   const topics = [
     { name: "Digital Electronics", id: "digital_electronics", icon: <FaMicrochip className="text-blue-500 text-2xl" /> },
@@ -56,7 +75,6 @@ const Home = () => {
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-100">
-      {/* ✅ Banner */}
       <header
         className="w-full h-44 flex items-center justify-center text-white text-3xl font-bold shadow-md relative"
         style={{
@@ -70,48 +88,59 @@ const Home = () => {
         <span className="relative z-10">Welcome to Smart Systems Technologies</span>
       </header>
 
-      {/* ✅ Breadcrumb */}
-      <nav className="bg-gray-200 py-3 px-6 text-gray-700 text-sm shadow-sm">Home</nav>
+      <nav className="bg-gray-200 py-3 px-6 text-gray-700 text-sm shadow-sm flex justify-between items-center">
+        <span>Home</span>
+        <Link to="/admin-login" className="text-sm text-blue-600 hover:underline">Admin Login</Link>
+      </nav>
 
-      {/* ✅ Content */}
-      <main className="flex-1 w-full px-6 py-8 flex flex-col items-center gap-8">
+      <main className="flex-1 w-full px-6 py-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
-        {/* ✅ Progress Section */}
-        <section className="w-full max-w-none bg-white shadow p-6 rounded-lg">
-          <h2 className="text-lg font-semibold text-gray-800">Your Progress</h2>
-          {grades.length === 0 ? (
-            <p className="text-gray-600 mt-2">No assignment scores yet.</p>
-          ) : (
-            <ul className="mt-4 space-y-4">
-              {grades.map((g, i) => (
-                <li key={i} className="border rounded p-4 bg-gray-50">
-                  <p className="font-bold capitalize">
-                    {g.topic_id.replaceAll("_", " ")} → {g.subtopic_id.replaceAll("_", " ")}
-                  </p>
-                  <p className="text-green-700 font-semibold text-sm">Score: {g.score}%</p>
-                  <p className="text-sm text-gray-600 italic mt-1">"{g.feedback}"</p>
-                </li>
+          {/* Left Column: Condensed Dashboard */}
+          <section className="md:col-span-1 bg-white shadow p-6 rounded-lg h-fit">
+            <h2 className="text-lg font-semibold text-gray-800 mb-4">{student ? `${student.first_name} ${student.last_name}'s Dashboard` : "Dashboard"}</h2>
+            {Object.entries(nestedSubtopicsBySubtopic).length > 0 ? (
+              Object.entries(nestedSubtopicsBySubtopic).map(([key, entries], i) => {
+                const [topic, subtopic] = key.split('/');
+                return (
+                  <div key={i} className="mb-4">
+                    <p className="text-sm font-semibold text-gray-700">{topic.replace(/_/g, ' ').replace(/\w/g, l => l.toUpperCase())}</p>
+                    <p className="text-xs font-medium text-gray-500 ml-2 mb-1">{subtopic.replace(/_/g, ' ').replace(/\w/g, l => l.toUpperCase())}:</p>
+                    <div className="flex flex-wrap gap-2 ml-4">
+                      {entries.map(entry => (
+                        <Link
+                          key={entry.nested_subtopic}
+                          to={`/topics/${entry.topic}/subtopics/${entry.subtopic}/${entry.nested_subtopic}`}
+                          className="px-3 py-1 rounded-full text-xs font-semibold border hover:bg-blue-500 hover:text-white transition"
+                        >
+                          {entry.nested_subtopic.replace(/_/g, ' ').replace(/\w/g, c => c.toUpperCase())} {getStatus(entry)}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <p className="text-gray-600">No progress data available.</p>
+            )}
+          </section>
+
+          {/* Right Column: Topics Grid */}
+          <section className="md:col-span-2 bg-white shadow p-6 rounded-lg border border-gray-200">
+            <h2 className="text-xl font-semibold text-gray-800 mb-4 text-center">Topics</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              {topics.map((topic, index) => (
+                <Link
+                  key={index}
+                  to={`/topics/${topic.id}`}
+                  className="flex items-center justify-center gap-3 bg-white p-4 rounded-lg text-center font-medium                   text-gray-700 shadow border border-gray-300 hover:bg-blue-500 hover:text-white transition-all duration-300"
+                >
+                  {topic.icon} <span>{topic.name}</span>
+                </Link>
               ))}
-            </ul>
-          )}
-        </section>
-
-        {/* ✅ Topics Grid */}
-        <section className="w-full max-w-none bg-white shadow p-6 rounded-lg border border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4 text-center">Topics</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            {topics.map((topic, index) => (
-              <Link
-                key={index}
-                to={`/topics/${topic.id}`}
-                className="flex items-center justify-center gap-3 bg-white p-4 rounded-lg text-center font-medium \
-                text-gray-700 shadow border border-gray-300 hover:bg-blue-500 hover:text-white transition-all duration-300"
-              >
-                {topic.icon} <span>{topic.name}</span>
-              </Link>
-            ))}
-          </div>
-        </section>
+            </div>
+          </section>
+        </div>
       </main>
 
       <Footer />
