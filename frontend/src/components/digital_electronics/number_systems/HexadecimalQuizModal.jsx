@@ -6,35 +6,74 @@ const HexadecimalQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
   const [submitted, setSubmitted] = useState(false);
   const [score, setScore] = useState(null);
 
-  const generateQuiz = () => {
-    const q = [];
-    const used = new Set();
-    while (q.length < 5) {
-      const dec = Math.floor(Math.random() * (255 - 16 + 1)) + 16;
-      if (!used.has(dec)) {
-        used.add(dec);
-        const hex = dec.toString(16).toUpperCase();
-        q.push({
-          type: "dec_to_hex",
-          question: `What is the hexadecimal representation of decimal ${dec}?`,
-          correctAnswer: hex
-        });
-      }
+  const generatedQuestions = [
+    {
+      "type": "dec_to_hex",
+      "question": "What is the hexadecimal representation of decimal 255?",
+      "correctAnswer": "FF"
+    },
+    {
+      "type": "hex_to_dec",
+      "question": "What is the decimal value of hexadecimal A0?",
+      "correctAnswer": "160"
+    },
+    {
+      "type": "dec_to_hex",
+      "question": "What is the hexadecimal representation of decimal 175?",
+      "correctAnswer": "AF"
+    },
+    {
+      "type": "hex_to_dec",
+      "question": "What is the decimal value of hexadecimal 4D?",
+      "correctAnswer": "77"
+    },
+    {
+      "type": "dec_to_hex",
+      "question": "What is the hexadecimal representation of decimal 99?",
+      "correctAnswer": "63"
+    },
+    {
+      "type": "dec_to_hex",
+      "question": "What is the hexadecimal representation of decimal 188?",
+      "correctAnswer": "BC"
+    },
+    {
+      "type": "hex_to_dec",
+      "question": "What is the decimal value of hexadecimal 7F?",
+      "correctAnswer": "127"
+    },
+    {
+      "type": "hex_to_dec",
+      "question": "What is the decimal value of hexadecimal 10?",
+      "correctAnswer": "16"
+    },
+    {
+      "type": "dec_to_hex",
+      "question": "What is the hexadecimal representation of decimal 200?",
+      "correctAnswer": "C8"
+    },
+    {
+      "type": "hex_to_dec",
+      "question": "What is the decimal value of hexadecimal 32?",
+      "correctAnswer": "50"
     }
-    setQuestions(q);
+  ];
+
+  const handleStartQuiz = () => {
+    setQuestions(generatedQuestions);
     setAnswers({});
     setSubmitted(false);
     setScore(null);
   };
 
   const handleChange = (index, value) => {
-    setAnswers({ ...answers, [index]: value.toUpperCase() });
+    setAnswers({ ...answers, [index]: value });
   };
 
   const handleSubmit = () => {
     let correct = 0;
     questions.forEach((q, i) => {
-      if (answers[i]?.trim().toUpperCase() === q.correctAnswer) {
+      if (answers[i]?.trim().toUpperCase() === q.correctAnswer.toUpperCase()) {
         correct++;
       }
     });
@@ -44,10 +83,28 @@ const HexadecimalQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
     setSubmitted(true);
 
     if (onQuizComplete) {
-      const achieved = finalScore >= 67 ? ["hexadecimal_conversion"] : [];
+      const objectiveMap = {
+        dec_to_hex: 'hex_conversion_decimal_to_hex',
+        hex_to_dec: 'hex_conversion_hex_to_decimal'
+      };
+
+      const objectiveCounts = {};
+      questions.forEach((q, i) => {
+        const key = objectiveMap[q.type];
+        if (!objectiveCounts[key]) objectiveCounts[key] = { correct: 0, total: 0 };
+        objectiveCounts[key].total++;
+        if (answers[i]?.trim().toUpperCase() === q.correctAnswer.toUpperCase()) {
+          objectiveCounts[key].correct++;
+        }
+      });
+
+      const achievedObjectives = Object.entries(objectiveCounts)
+        .filter(([_, stats]) => stats.correct / stats.total >= 0.67)
+        .map(([key]) => key);
+
       onQuizComplete({
         score: finalScore,
-        objectiveKeys: achieved
+        objectiveKeys: achievedObjectives
       });
     }
   };
@@ -57,7 +114,7 @@ const HexadecimalQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
       <div className="bg-white rounded-xl shadow-lg p-6 max-w-3xl w-full overflow-y-auto max-h-[90vh]">
-        <h2 className="text-xl font-bold mb-4">Hexadecimal Numbers Quiz</h2>
+        <h2 className="text-xl font-bold mb-4">Hexadecimal Quiz</h2>
 
         {submitted && (
           <div className="flex items-center justify-between mb-4">
@@ -65,14 +122,29 @@ const HexadecimalQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
               Final Score: {score}%
             </div>
             <div className="flex gap-2">
-              <button className="bg-blue-400 text-white px-4 py-2 rounded hover:bg-blue-500" onClick={generateQuiz}>Retake Quiz</button>
-              <button className="bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-600" onClick={onClose}>Close</button>
+              <button
+                className="bg-blue-400 text-white px-4 py-2 rounded hover:bg-blue-500"
+                onClick={handleStartQuiz}
+              >
+                Retake Quiz
+              </button>
+              <button
+                className="bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-600"
+                onClick={onClose}
+              >
+                Close
+              </button>
             </div>
           </div>
         )}
 
         {!questions.length ? (
-          <button onClick={generateQuiz} className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Start Quiz</button>
+          <button
+            onClick={handleStartQuiz}
+            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+          >
+            Start Quiz
+          </button>
         ) : (
           <div className="space-y-4">
             {questions.map((q, i) => (
@@ -86,16 +158,22 @@ const HexadecimalQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
                   disabled={submitted}
                 />
                 {submitted && (
-                  <p className={\`mt-1 text-sm \${answers[i]?.trim().toUpperCase() === q.correctAnswer ? 'text-green-600' : 'text-red-600'}\`}>
-                    {answers[i]?.trim().toUpperCase() === q.correctAnswer
+                  <p className={`mt-1 text-sm ${answers[i]?.trim().toUpperCase() === q.correctAnswer.toUpperCase() ? 'text-green-600' : 'text-red-600'}`}>
+                    {answers[i]?.trim().toUpperCase() === q.correctAnswer.toUpperCase()
                       ? '✅ Correct'
-                      : \`❌ Correct Answer: \${q.correctAnswer}\`}
+                      : `❌ Correct Answer: ${q.correctAnswer}`}
                   </p>
                 )}
               </div>
             ))}
+
             {!submitted && (
-              <button onClick={handleSubmit} className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">Submit Quiz</button>
+              <button
+                onClick={handleSubmit}
+                className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+              >
+                Submit Quiz
+              </button>
             )}
           </div>
         )}

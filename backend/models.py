@@ -3,6 +3,7 @@ from typing import Dict, Optional
 from datetime import datetime
 
 class Student(BaseModel):
+    user_id: str
     name: str
     email: str
 

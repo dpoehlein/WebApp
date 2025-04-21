@@ -6,22 +6,61 @@ const OctalQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
   const [submitted, setSubmitted] = useState(false);
   const [score, setScore] = useState(null);
 
-  const generateQuiz = () => {
-    const q = [];
-    const used = new Set();
-    while (q.length < 5) {
-      const dec = Math.floor(Math.random() * (63 - 8 + 1)) + 8;
-      if (!used.has(dec)) {
-        used.add(dec);
-        const oct = dec.toString(8);
-        q.push({
-          type: "dec_to_oct",
-          question: `What is the octal representation of decimal ${dec}?`,
-          correctAnswer: oct
-        });
-      }
+  const generatedQuestions = [
+    {
+      "type": "dec_to_oct",
+      "question": "What is the octal representation of decimal 210?",
+      "correctAnswer": "322"
+    },
+    {
+      "type": "oct_to_dec",
+      "question": "What is the decimal value of octal 112?",
+      "correctAnswer": "74"
+    },
+    {
+      "type": "oct_to_dec",
+      "question": "What is the decimal value of octal 312?",
+      "correctAnswer": "202"
+    },
+    {
+      "type": "oct_to_dec",
+      "question": "What is the decimal value of octal 357",
+      "correctAnswer": "239"
+    },
+    {
+      "type": "dec_to_oct",
+      "question": "What is the octal representation of decimal 85?",
+      "correctAnswer": "125"
+    },
+    {
+      "type": "dec_to_oct",
+      "question": "What is the octal representation of decimal 112?",
+      "correctAnswer": "160"
+    },
+    {
+      "type": "oct_to_dec",
+      "question": "What is the decimal value of octal 245?",
+      "correctAnswer": "165"
+    },
+    {
+      "type": "dec_to_oct",
+      "question": "What is the octal representation of decimal 173?",
+      "correctAnswer": "255"
+    },
+    {
+      "type": "dec_to_oct",
+      "question": "What is the octal representation of decimal 152?",
+      "correctAnswer": "230"
+    },
+    {
+      "type": "oct_to_dec",
+      "question": "What is the decimal value of octal 337?",
+      "correctAnswer": "223"
     }
-    setQuestions(q);
+  ];
+
+  const handleStartQuiz = () => {
+    setQuestions(generatedQuestions);
     setAnswers({});
     setSubmitted(false);
     setScore(null);
@@ -34,7 +73,7 @@ const OctalQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
   const handleSubmit = () => {
     let correct = 0;
     questions.forEach((q, i) => {
-      if (answers[i]?.trim() === q.correctAnswer) {
+      if (answers[i]?.trim().toLowerCase() === q.correctAnswer.toLowerCase()) {
         correct++;
       }
     });
@@ -44,10 +83,28 @@ const OctalQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
     setSubmitted(true);
 
     if (onQuizComplete) {
-      const achieved = finalScore >= 67 ? ["octal_conversion"] : [];
+      const objectiveMap = {
+        dec_to_oct: 'octal_conversion_decimal_to_octal',
+        oct_to_dec: 'octal_conversion_octal_to_decimal'
+      };
+
+      const objectiveCounts = {};
+      questions.forEach((q, i) => {
+        const key = objectiveMap[q.type];
+        if (!objectiveCounts[key]) objectiveCounts[key] = { correct: 0, total: 0 };
+        objectiveCounts[key].total++;
+        if (answers[i]?.trim().toLowerCase() === q.correctAnswer.toLowerCase()) {
+          objectiveCounts[key].correct++;
+        }
+      });
+
+      const achievedObjectives = Object.entries(objectiveCounts)
+        .filter(([_, stats]) => stats.correct / stats.total >= 0.67)
+        .map(([key]) => key);
+
       onQuizComplete({
         score: finalScore,
-        objectiveKeys: achieved
+        objectiveKeys: achievedObjectives
       });
     }
   };
@@ -57,7 +114,7 @@ const OctalQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
       <div className="bg-white rounded-xl shadow-lg p-6 max-w-3xl w-full overflow-y-auto max-h-[90vh]">
-        <h2 className="text-xl font-bold mb-4">Octal Numbers Quiz</h2>
+        <h2 className="text-xl font-bold mb-4">Octal Quiz</h2>
 
         {submitted && (
           <div className="flex items-center justify-between mb-4">
@@ -67,7 +124,7 @@ const OctalQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
             <div className="flex gap-2">
               <button
                 className="bg-blue-400 text-white px-4 py-2 rounded hover:bg-blue-500"
-                onClick={generateQuiz}
+                onClick={handleStartQuiz}
               >
                 Retake Quiz
               </button>
@@ -83,7 +140,7 @@ const OctalQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
 
         {!questions.length ? (
           <button
-            onClick={generateQuiz}
+            onClick={handleStartQuiz}
             className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
           >
             Start Quiz
@@ -101,8 +158,8 @@ const OctalQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
                   disabled={submitted}
                 />
                 {submitted && (
-                  <p className={`mt-1 text-sm ${answers[i]?.trim() === q.correctAnswer ? 'text-green-600' : 'text-red-600'}`}>
-                    {answers[i]?.trim() === q.correctAnswer
+                  <p className={`mt-1 text-sm ${answers[i]?.trim().toLowerCase() === q.correctAnswer.toLowerCase() ? 'text-green-600' : 'text-red-600'}`}>
+                    {answers[i]?.trim().toLowerCase() === q.correctAnswer.toLowerCase()
                       ? '✅ Correct'
                       : `❌ Correct Answer: ${q.correctAnswer}`}
                   </p>

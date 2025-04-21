@@ -17,7 +17,14 @@ class Student(BaseModel):
 @router.get("/students", response_model=List[Student])
 async def list_students():
     cursor = students_collection.find({})
-    return [Student(**doc) async for doc in cursor]
+    valid_students = []
+    async for doc in cursor:
+        if "user_id" in doc:
+            try:
+                valid_students.append(Student(**doc))
+            except Exception as e:
+                print(f"⚠️ Skipping malformed student document: {doc} — Error: {e}")
+    return valid_students
 
 @router.get("/students/{user_id}", response_model=Student)
 async def get_student(user_id: str):

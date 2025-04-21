@@ -1,28 +1,66 @@
 import React, { useState } from "react";
 
-const GrayCodeQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
+const GraycodeQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
   const [questions, setQuestions] = useState([]);
   const [answers, setAnswers] = useState({});
   const [submitted, setSubmitted] = useState(false);
   const [score, setScore] = useState(null);
 
-  const toGray = (n) => (n ^ (n >> 1)).toString(2).padStart(5, "0");
+  const generatedQuestions = [
+  {
+    "type": "dec_to_gray",
+    "question": "What is the 5-bit Gray code for decimal 0?",
+    "correctAnswer": "00000"
+  },
+  {
+    "type": "dec_to_gray",
+    "question": "What is the 5-bit Gray code for decimal 1?",
+    "correctAnswer": "00001"
+  },
+  {
+    "type": "dec_to_gray",
+    "question": "What is the 5-bit Gray code for decimal 2?",
+    "correctAnswer": "00011"
+  },
+  {
+    "type": "dec_to_gray",
+    "question": "What is the 5-bit Gray code for decimal 3?",
+    "correctAnswer": "00010"
+  },
+  {
+    "type": "dec_to_gray",
+    "question": "What is the 5-bit Gray code for decimal 4?",
+    "correctAnswer": "00110"
+  },
+  {
+    "type": "dec_to_gray",
+    "question": "What is the 5-bit Gray code for decimal 5?",
+    "correctAnswer": "00111"
+  },
+  {
+    "type": "dec_to_gray",
+    "question": "What is the 5-bit Gray code for decimal 6?",
+    "correctAnswer": "00101"
+  },
+  {
+    "type": "dec_to_gray",
+    "question": "What is the 5-bit Gray code for decimal 7?",
+    "correctAnswer": "00100"
+  },
+  {
+    "type": "dec_to_gray",
+    "question": "What is the 5-bit Gray code for decimal 8?",
+    "correctAnswer": "01100"
+  },
+  {
+    "type": "dec_to_gray",
+    "question": "What is the 5-bit Gray code for decimal 9?",
+    "correctAnswer": "01101"
+  }
+];
 
-  const generateQuiz = () => {
-    const q = [];
-    const used = new Set();
-    while (q.length < 5) {
-      const dec = Math.floor(Math.random() * 32); // 5-bit gray
-      if (!used.has(dec)) {
-        used.add(dec);
-        q.push({
-          type: "dec_to_gray",
-          question: `What is the Gray Code for decimal ${dec}?`,
-          correctAnswer: toGray(dec)
-        });
-      }
-    }
-    setQuestions(q);
+  const handleStartQuiz = () => {
+    setQuestions(generatedQuestions);
     setAnswers({});
     setSubmitted(false);
     setScore(null);
@@ -45,10 +83,9 @@ const GrayCodeQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
     setSubmitted(true);
 
     if (onQuizComplete) {
-      const achieved = finalScore >= 67 ? ["gray_code_conversion"] : [];
       onQuizComplete({
         score: finalScore,
-        objectiveKeys: achieved
+        objectiveKeys: ["gray_code_conversion_decimal_to_gray"]
       });
     }
   };
@@ -62,16 +99,24 @@ const GrayCodeQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
 
         {submitted && (
           <div className="flex items-center justify-between mb-4">
-            <div className="text-lg font-semibold text-green-700">Final Score: {score}%</div>
+            <div className="text-lg font-semibold text-green-700">
+              Final Score: {score}%
+            </div>
             <div className="flex gap-2">
-              <button className="bg-blue-400 text-white px-4 py-2 rounded hover:bg-blue-500" onClick={generateQuiz}>Retake Quiz</button>
-              <button className="bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-600" onClick={onClose}>Close</button>
+              <button className="bg-blue-400 text-white px-4 py-2 rounded hover:bg-blue-500" onClick={handleStartQuiz}>
+                Retake Quiz
+              </button>
+              <button className="bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-600" onClick={onClose}>
+                Close
+              </button>
             </div>
           </div>
         )}
 
         {!questions.length ? (
-          <button onClick={generateQuiz} className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Start Quiz</button>
+          <button onClick={handleStartQuiz} className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+            Start Quiz
+          </button>
         ) : (
           <div className="space-y-4">
             {questions.map((q, i) => (
@@ -85,16 +130,19 @@ const GrayCodeQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
                   disabled={submitted}
                 />
                 {submitted && (
-                  <p className={\`mt-1 text-sm \${answers[i]?.trim() === q.correctAnswer ? 'text-green-600' : 'text-red-600'}\`}>
+                  <p className={`mt-1 text-sm ${answers[i]?.trim() === q.correctAnswer ? 'text-green-600' : 'text-red-600'}`}>
                     {answers[i]?.trim() === q.correctAnswer
                       ? '✅ Correct'
-                      : \`❌ Correct Answer: \${q.correctAnswer}\`}
+                      : `❌ Correct Answer: ${q.correctAnswer}`}
                   </p>
                 )}
               </div>
             ))}
+
             {!submitted && (
-              <button onClick={handleSubmit} className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">Submit Quiz</button>
+              <button onClick={handleSubmit} className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+                Submit Quiz
+              </button>
             )}
           </div>
         )}
@@ -103,4 +151,4 @@ const GrayCodeQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
   );
 };
 
-export default GrayCodeQuizModal;
+export default GraycodeQuizModal;

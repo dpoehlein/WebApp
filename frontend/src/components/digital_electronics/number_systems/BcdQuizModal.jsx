@@ -1,31 +1,66 @@
 import React, { useState } from "react";
 
-const BCDQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
+const BcdQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
   const [questions, setQuestions] = useState([]);
   const [answers, setAnswers] = useState({});
   const [submitted, setSubmitted] = useState(false);
   const [score, setScore] = useState(null);
 
-  const generateQuiz = () => {
-    const q = [];
-    const used = new Set();
-    while (q.length < 5) {
-      const dec = Math.floor(Math.random() * 100);
-      if (!used.has(dec)) {
-        used.add(dec);
-        const bcd = dec
-          .toString()
-          .split("")
-          .map((d) => parseInt(d).toString(2).padStart(4, "0"))
-          .join(" ");
-        q.push({
-          type: "dec_to_bcd",
-          question: `What is the BCD encoding of ${dec}?`,
-          correctAnswer: bcd
-        });
-      }
-    }
-    setQuestions(q);
+  const generatedQuestions = [
+  {
+    "type": "dec_to_bcd",
+    "question": "What is the BCD representation of decimal 37?",
+    "correctAnswer": "0011 0111"
+  },
+  {
+    "type": "dec_to_bcd",
+    "question": "What is the BCD representation of decimal 85?",
+    "correctAnswer": "1000 0101"
+  },
+  {
+    "type": "dec_to_bcd",
+    "question": "What is the BCD representation of decimal 109?",
+    "correctAnswer": "0001 0000 1001"
+  },
+  {
+    "type": "dec_to_bcd",
+    "question": "What is the BCD representation of decimal 62?",
+    "correctAnswer": "0110 0010"
+  },
+  {
+    "type": "dec_to_bcd",
+    "question": "What is the BCD representation of decimal 253?",
+    "correctAnswer": "0010 0101 0011"
+  },
+  {
+    "type": "dec_to_bcd",
+    "question": "What is the BCD representation of decimal 99?",
+    "correctAnswer": "1001 1001"
+  },
+  {
+    "type": "dec_to_bcd",
+    "question": "What is the BCD representation of decimal 100?",
+    "correctAnswer": "0001 0000 0000"
+  },
+  {
+    "type": "dec_to_bcd",
+    "question": "What is the BCD representation of decimal 64?",
+    "correctAnswer": "0110 0100"
+  },
+  {
+    "type": "dec_to_bcd",
+    "question": "What is the BCD representation of decimal 123?",
+    "correctAnswer": "0001 0010 0011"
+  },
+  {
+    "type": "dec_to_bcd",
+    "question": "What is the BCD representation of decimal 41?",
+    "correctAnswer": "0100 0001"
+  }
+];
+
+  const handleStartQuiz = () => {
+    setQuestions(generatedQuestions);
     setAnswers({});
     setSubmitted(false);
     setScore(null);
@@ -38,7 +73,7 @@ const BCDQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
   const handleSubmit = () => {
     let correct = 0;
     questions.forEach((q, i) => {
-      if (answers[i]?.trim() === q.correctAnswer) {
+      if (answers[i]?.trim().replace(/\s+/g, '') === q.correctAnswer.replace(/\s+/g, '')) {
         correct++;
       }
     });
@@ -48,10 +83,9 @@ const BCDQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
     setSubmitted(true);
 
     if (onQuizComplete) {
-      const achieved = finalScore >= 67 ? ["bcd_conversion"] : [];
       onQuizComplete({
         score: finalScore,
-        objectiveKeys: achieved
+        objectiveKeys: ["bcd_conversion_decimal_to_bcd"]
       });
     }
   };
@@ -65,16 +99,24 @@ const BCDQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
 
         {submitted && (
           <div className="flex items-center justify-between mb-4">
-            <div className="text-lg font-semibold text-green-700">Final Score: {score}%</div>
+            <div className="text-lg font-semibold text-green-700">
+              Final Score: {score}%
+            </div>
             <div className="flex gap-2">
-              <button className="bg-blue-400 text-white px-4 py-2 rounded hover:bg-blue-500" onClick={generateQuiz}>Retake Quiz</button>
-              <button className="bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-600" onClick={onClose}>Close</button>
+              <button className="bg-blue-400 text-white px-4 py-2 rounded hover:bg-blue-500" onClick={handleStartQuiz}>
+                Retake Quiz
+              </button>
+              <button className="bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-600" onClick={onClose}>
+                Close
+              </button>
             </div>
           </div>
         )}
 
         {!questions.length ? (
-          <button onClick={generateQuiz} className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Start Quiz</button>
+          <button onClick={handleStartQuiz} className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+            Start Quiz
+          </button>
         ) : (
           <div className="space-y-4">
             {questions.map((q, i) => (
@@ -88,16 +130,19 @@ const BCDQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
                   disabled={submitted}
                 />
                 {submitted && (
-                  <p className={\`mt-1 text-sm \${answers[i]?.trim() === q.correctAnswer ? 'text-green-600' : 'text-red-600'}\`}>
-                    {answers[i]?.trim() === q.correctAnswer
+                  <p className={`mt-1 text-sm ${answers[i]?.trim().replace(/\s+/g, '') === q.correctAnswer.replace(/\s+/g, '') ? 'text-green-600' : 'text-red-600'}`}>
+                    {answers[i]?.trim().replace(/\s+/g, '') === q.correctAnswer.replace(/\s+/g, '')
                       ? '✅ Correct'
-                      : \`❌ Correct Answer: \${q.correctAnswer}\`}
+                      : `❌ Correct Answer: ${q.correctAnswer}`}
                   </p>
                 )}
               </div>
             ))}
+
             {!submitted && (
-              <button onClick={handleSubmit} className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">Submit Quiz</button>
+              <button onClick={handleSubmit} className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+                Submit Quiz
+              </button>
             )}
           </div>
         )}
@@ -106,4 +151,4 @@ const BCDQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
   );
 };
 
-export default BCDQuizModal;
+export default BcdQuizModal;
