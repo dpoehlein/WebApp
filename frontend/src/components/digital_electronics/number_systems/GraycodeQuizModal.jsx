@@ -1,63 +1,91 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
 const GraycodeQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
+
+  useEffect(() => {
+    if (score !== null && score > 0) {
+      const saveQuizScore = async () => {
+        try {
+          await fetch("http://localhost:8000/save-progress", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              user_id: localStorage.getItem("student_id"),
+              topic: "digital_electronics",
+              subtopic: "number_systems",
+              nested_subtopic: "gray_code",
+              quiz_score: score,
+              ai_score: 0,
+              assignment_score: 0,
+              activity_id: "de_ns_gray_001"
+            }),
+          });
+          console.log("✅ Quiz score saved to backend.");
+        } catch (error) {
+          console.error("❌ Failed to save quiz score:", error);
+        }
+      };
+      saveQuizScore();
+    }
+  }, [score]);
+
   const [questions, setQuestions] = useState([]);
   const [answers, setAnswers] = useState({});
   const [submitted, setSubmitted] = useState(false);
   const [score, setScore] = useState(null);
 
   const generatedQuestions = [
-  {
-    "type": "dec_to_gray",
-    "question": "What is the 5-bit Gray code for decimal 0?",
-    "correctAnswer": "00000"
-  },
-  {
-    "type": "dec_to_gray",
-    "question": "What is the 5-bit Gray code for decimal 1?",
-    "correctAnswer": "00001"
-  },
-  {
-    "type": "dec_to_gray",
-    "question": "What is the 5-bit Gray code for decimal 2?",
-    "correctAnswer": "00011"
-  },
-  {
-    "type": "dec_to_gray",
-    "question": "What is the 5-bit Gray code for decimal 3?",
-    "correctAnswer": "00010"
-  },
-  {
-    "type": "dec_to_gray",
-    "question": "What is the 5-bit Gray code for decimal 4?",
-    "correctAnswer": "00110"
-  },
-  {
-    "type": "dec_to_gray",
-    "question": "What is the 5-bit Gray code for decimal 5?",
-    "correctAnswer": "00111"
-  },
-  {
-    "type": "dec_to_gray",
-    "question": "What is the 5-bit Gray code for decimal 6?",
-    "correctAnswer": "00101"
-  },
-  {
-    "type": "dec_to_gray",
-    "question": "What is the 5-bit Gray code for decimal 7?",
-    "correctAnswer": "00100"
-  },
-  {
-    "type": "dec_to_gray",
-    "question": "What is the 5-bit Gray code for decimal 8?",
-    "correctAnswer": "01100"
-  },
-  {
-    "type": "dec_to_gray",
-    "question": "What is the 5-bit Gray code for decimal 9?",
-    "correctAnswer": "01101"
-  }
-];
+    {
+      "type": "dec_to_gray",
+      "question": "What is the 5-bit Gray code for decimal 0?",
+      "correctAnswer": "00000"
+    },
+    {
+      "type": "dec_to_gray",
+      "question": "What is the 5-bit Gray code for decimal 1?",
+      "correctAnswer": "00001"
+    },
+    {
+      "type": "dec_to_gray",
+      "question": "What is the 5-bit Gray code for decimal 2?",
+      "correctAnswer": "00011"
+    },
+    {
+      "type": "dec_to_gray",
+      "question": "What is the 5-bit Gray code for decimal 3?",
+      "correctAnswer": "00010"
+    },
+    {
+      "type": "dec_to_gray",
+      "question": "What is the 5-bit Gray code for decimal 4?",
+      "correctAnswer": "00110"
+    },
+    {
+      "type": "dec_to_gray",
+      "question": "What is the 5-bit Gray code for decimal 5?",
+      "correctAnswer": "00111"
+    },
+    {
+      "type": "dec_to_gray",
+      "question": "What is the 5-bit Gray code for decimal 6?",
+      "correctAnswer": "00101"
+    },
+    {
+      "type": "dec_to_gray",
+      "question": "What is the 5-bit Gray code for decimal 7?",
+      "correctAnswer": "00100"
+    },
+    {
+      "type": "dec_to_gray",
+      "question": "What is the 5-bit Gray code for decimal 8?",
+      "correctAnswer": "01100"
+    },
+    {
+      "type": "dec_to_gray",
+      "question": "What is the 5-bit Gray code for decimal 9?",
+      "correctAnswer": "01101"
+    }
+  ];
 
   const handleStartQuiz = () => {
     setQuestions(generatedQuestions);

@@ -1,63 +1,91 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
 const BcdQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
+
+  useEffect(() => {
+    if (score !== null && score > 0) {
+      const saveQuizScore = async () => {
+        try {
+          await fetch("http://localhost:8000/save-progress", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              user_id: localStorage.getItem("student_id"),
+              topic: "digital_electronics",
+              subtopic: "number_systems",
+              nested_subtopic: "bcd",
+              quiz_score: score,
+              ai_score: 0,
+              assignment_score: 0,
+              activity_id: "de_ns_bcd_001"
+            }),
+          });
+          console.log("✅ Quiz score saved to backend.");
+        } catch (error) {
+          console.error("❌ Failed to save quiz score:", error);
+        }
+      };
+      saveQuizScore();
+    }
+  }, [score]);
+
   const [questions, setQuestions] = useState([]);
   const [answers, setAnswers] = useState({});
   const [submitted, setSubmitted] = useState(false);
   const [score, setScore] = useState(null);
 
   const generatedQuestions = [
-  {
-    "type": "dec_to_bcd",
-    "question": "What is the BCD representation of decimal 37?",
-    "correctAnswer": "0011 0111"
-  },
-  {
-    "type": "dec_to_bcd",
-    "question": "What is the BCD representation of decimal 85?",
-    "correctAnswer": "1000 0101"
-  },
-  {
-    "type": "dec_to_bcd",
-    "question": "What is the BCD representation of decimal 109?",
-    "correctAnswer": "0001 0000 1001"
-  },
-  {
-    "type": "dec_to_bcd",
-    "question": "What is the BCD representation of decimal 62?",
-    "correctAnswer": "0110 0010"
-  },
-  {
-    "type": "dec_to_bcd",
-    "question": "What is the BCD representation of decimal 253?",
-    "correctAnswer": "0010 0101 0011"
-  },
-  {
-    "type": "dec_to_bcd",
-    "question": "What is the BCD representation of decimal 99?",
-    "correctAnswer": "1001 1001"
-  },
-  {
-    "type": "dec_to_bcd",
-    "question": "What is the BCD representation of decimal 100?",
-    "correctAnswer": "0001 0000 0000"
-  },
-  {
-    "type": "dec_to_bcd",
-    "question": "What is the BCD representation of decimal 64?",
-    "correctAnswer": "0110 0100"
-  },
-  {
-    "type": "dec_to_bcd",
-    "question": "What is the BCD representation of decimal 123?",
-    "correctAnswer": "0001 0010 0011"
-  },
-  {
-    "type": "dec_to_bcd",
-    "question": "What is the BCD representation of decimal 41?",
-    "correctAnswer": "0100 0001"
-  }
-];
+    {
+      "type": "dec_to_bcd",
+      "question": "What is the BCD representation of decimal 37?",
+      "correctAnswer": "0011 0111"
+    },
+    {
+      "type": "dec_to_bcd",
+      "question": "What is the BCD representation of decimal 85?",
+      "correctAnswer": "1000 0101"
+    },
+    {
+      "type": "dec_to_bcd",
+      "question": "What is the BCD representation of decimal 109?",
+      "correctAnswer": "0001 0000 1001"
+    },
+    {
+      "type": "dec_to_bcd",
+      "question": "What is the BCD representation of decimal 62?",
+      "correctAnswer": "0110 0010"
+    },
+    {
+      "type": "dec_to_bcd",
+      "question": "What is the BCD representation of decimal 253?",
+      "correctAnswer": "0010 0101 0011"
+    },
+    {
+      "type": "dec_to_bcd",
+      "question": "What is the BCD representation of decimal 99?",
+      "correctAnswer": "1001 1001"
+    },
+    {
+      "type": "dec_to_bcd",
+      "question": "What is the BCD representation of decimal 100?",
+      "correctAnswer": "0001 0000 0000"
+    },
+    {
+      "type": "dec_to_bcd",
+      "question": "What is the BCD representation of decimal 64?",
+      "correctAnswer": "0110 0100"
+    },
+    {
+      "type": "dec_to_bcd",
+      "question": "What is the BCD representation of decimal 123?",
+      "correctAnswer": "0001 0010 0011"
+    },
+    {
+      "type": "dec_to_bcd",
+      "question": "What is the BCD representation of decimal 41?",
+      "correctAnswer": "0100 0001"
+    }
+  ];
 
   const handleStartQuiz = () => {
     setQuestions(generatedQuestions);

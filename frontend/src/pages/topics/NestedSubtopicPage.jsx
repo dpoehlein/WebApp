@@ -32,6 +32,7 @@ const NestedSubtopicPage = ({ topicId: propTopicId, subtopicId: propSubtopicId, 
   const subtopicId = propSubtopicId || routeParams.subtopicId;
   const nestedSubtopicId = propNestedSubtopicId || routeParams.nestedSubtopicId;
 
+  // States for content and progress
   const [subtopicData, setSubtopicData] = useState(null);
   const [practiceData, setPracticeData] = useState(null);
   const [videoData, setVideoData] = useState(null);
@@ -40,9 +41,14 @@ const NestedSubtopicPage = ({ topicId: propTopicId, subtopicId: propSubtopicId, 
   const [aiScore, setAIScore] = useState(0);
   const [isQuizOpen, setIsQuizOpen] = useState(false);
 
+  // Components
   const QuizModal = quizModals[nestedSubtopicId] || null;
   const WalkthroughComponent = walkthroughComponents[nestedSubtopicId] || null;
 
+  // Extract learning objectives for this nested subtopic
+  const objectives = learningObjectives[topicId]?.[subtopicId]?.[nestedSubtopicId] || [];
+
+  // Load static JSON data for subtopic/practice/videos
   useEffect(() => {
     Promise.all([
       fetch(`/data/topics/${topicId}/subtopics/${subtopicId}/${nestedSubtopicId}/subtopic.json`).then(res => res.json()),
@@ -54,30 +60,63 @@ const NestedSubtopicPage = ({ topicId: propTopicId, subtopicId: propSubtopicId, 
         setPracticeData(practiceRes);
         setVideoData(videoRes);
       })
-      .catch((err) => console.error("Failed to load nested subtopic data:", err));
+      .catch(err => console.error("Failed to load nested subtopic data:", err));
   }, [topicId, subtopicId, nestedSubtopicId]);
 
-  const objectives = (learningObjectives[topicId]?.[subtopicId]?.[nestedSubtopicId]) || [];
+  // Fetch saved progress from backend
+  useEffect(() => {
+    const studentId = localStorage.getItem("student_id");
+    if (!studentId) return;
+
+    const fetchSavedProgress = async () => {
+      try {
+        const res = await fetch(`http://localhost:8000/get-progress?student_id=${studentId}&topic_id=${topicId}&subtopic_id=${subtopicId}&nested_subtopic_id=${nestedSubtopicId}`);
+        const data = await res.json();
+        console.log("🌟 Fetched saved progress data:", data);
+        if (data) {
+          setQuizScore(data.quiz_score || 0);
+          setAIScore(data.ai_score || 0);
+          if (Array.isArray(data.objective_progress) && data.objective_progress.length === objectives.length) {
+            setObjectiveProgress(data.objective_progress);
+          } else {
+            setObjectiveProgress(objectives.map(() => false));
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load saved progress:", err);
+        setObjectiveProgress(objectives.map(() => false)); // fallback all false
+      }
+    };
+
+    fetchSavedProgress();
+  }, [topicId, subtopicId, nestedSubtopicId, objectives]);
+
+  // Breadcrumb display names
   const topicName = topicId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   const subtopicName = subtopicId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 
+  // Calculate progress stats and grade
   const completed = objectiveProgress.filter(p => p === true).length;
   const total = objectives.length;
   const aiPercent = total > 0 ? Math.round((completed / total) * 100) : 0;
   const overallGrade = Math.max(aiPercent, quizScore || 0, aiScore || 0);
 
-  const handleQuizCompletion = ({ score, objectiveKeys }) => {
+  // Handle quiz completion: update scores and progress
+  const handleQuizCompletion = ({ score, objectiveKeys, objective_progress }) => {
     setQuizScore(score);
-    setObjectiveProgress((prev) => {
-      const updated = [...prev];
-      objectiveKeys.forEach((key) => {
-        const index = objectives.findIndex((obj) => obj.key === key);
-        if (index !== -1) {
-          updated[index] = true;
-        }
+
+    if (objective_progress && Array.isArray(objective_progress)) {
+      setObjectiveProgress(objective_progress);
+    } else if (objectiveKeys) {
+      setObjectiveProgress(prev => {
+        const updated = [...prev];
+        objectiveKeys.forEach(key => {
+          const index = objectives.findIndex(obj => obj.key === key);
+          if (index !== -1) updated[index] = true;
+        });
+        return updated;
       });
-      return updated;
-    });
+    }
   };
 
   if (!subtopicData) return <div className="p-8 text-gray-600">Loading...</div>;
@@ -102,9 +141,7 @@ const NestedSubtopicPage = ({ topicId: propTopicId, subtopicId: propSubtopicId, 
       <main className="flex-1 w-full px-6 py-8 flex flex-col lg:flex-row gap-6">
         <div className="w-full lg:w-1/2 overflow-y-auto pr-2">
           <ContentContainer className="max-w-none">
-            <p className="text-gray-700 text-lg font-medium mb-4">
-              {subtopicData.description}
-            </p>
+            <p className="text-gray-700 text-lg font-medium mb-4">{subtopicData.description}</p>
 
             {objectives.length > 0 && (
               <div className="mb-6">
@@ -113,9 +150,7 @@ const NestedSubtopicPage = ({ topicId: propTopicId, subtopicId: propSubtopicId, 
                     <strong>📊 Module Progress Tracking:</strong> As you use the AI Assistant or complete the quiz, your progress toward completing the learning objectives will update.
                   </p>
                   <div className="flex justify-between items-center">
-                    <div className="text-lg font-bold text-gray-800">
-                      Topic Grade: {overallGrade}%
-                    </div>
+                    <div className="text-lg font-bold text-gray-800">Topic Grade: {overallGrade}%</div>
                     <div className="text-sm text-gray-600 space-x-4">
                       <span>🟢 Completed</span>
                       <span>🟡 Making Progress</span>
@@ -169,12 +204,7 @@ const NestedSubtopicPage = ({ topicId: propTopicId, subtopicId: propSubtopicId, 
                     <li key={idx}>
                       <p className="text-blue-700 font-semibold">{vid.title}</p>
                       <p className="text-gray-600 text-sm mb-1">{vid.description}</p>
-                      <a
-                        href={vid.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-500 hover:underline text-sm"
-                      >
+                      <a href={vid.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline text-sm">
                         Watch Video
                       </a>
                     </li>
@@ -185,7 +215,7 @@ const NestedSubtopicPage = ({ topicId: propTopicId, subtopicId: propSubtopicId, 
           </ContentContainer>
         </div>
 
-        <div className="w-full lg:w-1/2 flex flex-col min-h-[70vh] space-y-4">
+        <div className="w-full lg:w-1/2 flex flex-col h-[calc(100vh-160px)] overflow-hidden space-y-4">
           <div className="bg-white p-4 rounded shadow-md border border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-lg font-semibold">
@@ -205,11 +235,7 @@ const NestedSubtopicPage = ({ topicId: propTopicId, subtopicId: propSubtopicId, 
 
           {QuizModal && (
             <Suspense fallback={<div>Loading quiz...</div>}>
-              <QuizModal
-                isOpen={isQuizOpen}
-                onClose={() => setIsQuizOpen(false)}
-                onQuizComplete={handleQuizCompletion}
-              />
+              <QuizModal isOpen={isQuizOpen} onClose={() => setIsQuizOpen(false)} onQuizComplete={handleQuizCompletion} />
             </Suspense>
           )}
 
@@ -217,7 +243,8 @@ const NestedSubtopicPage = ({ topicId: propTopicId, subtopicId: propSubtopicId, 
             topicId={topicId}
             subtopicId={subtopicId}
             nestedSubtopicId={nestedSubtopicId}
-            objectives={objectives}
+            objectives={objectives}                 // Pass the learning objectives array (text)
+            objectiveProgress={objectiveProgress}   // Pass the progress flags (bools)
             onProgressUpdate={setObjectiveProgress}
             onScoreUpdate={setAIScore}
             QuizModal={QuizModal}

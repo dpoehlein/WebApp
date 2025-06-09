@@ -28,7 +28,7 @@ keywords = {
 }
 
 def get_objective_state(history):
-    user_text = " ".join(msg["content"].lower() for msg in history if msg["role"] == "user")
+    user_messages = [msg["content"].lower() for msg in history if msg["role"] == "user"]
     counter = defaultdict(int)
     result_flags = []
 
@@ -44,20 +44,23 @@ def get_objective_state(history):
     for obj in objectives:
         obj_id = obj["id"]
         min_hits = obj["min_successes"]
-        matches = 0
-        for pattern in keywords.get(obj_id, []):
-            if isinstance(pattern, str):
-                if pattern.lower() in user_text:
-                    matches += 1
-            else:
-                if re.search(pattern, user_text):
-                    matches += 1
+        match_count = 0
 
-        if matches >= min_hits:
+        for msg in user_messages:  # each message is lowercased
+            for pattern in keywords.get(obj_id, []):
+                if isinstance(pattern, str):
+                    if pattern in msg:
+                        match_count += 1
+                else:
+                    if re.search(pattern, msg):
+                        match_count += 1
+
+        if match_count >= min_hits:
             result_flags.append(True)
-        elif matches > 0:
+        elif match_count > 0:
             result_flags.append("partial")
         else:
             result_flags.append(False)
 
-    return result_flags
+
+        return result_flags

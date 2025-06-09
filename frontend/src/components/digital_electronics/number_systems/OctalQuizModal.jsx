@@ -1,6 +1,34 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
 const OctalQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
+
+  useEffect(() => {
+    if (score !== null && score > 0) {
+      const saveQuizScore = async () => {
+        try {
+          await fetch("http://localhost:8000/save-progress", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              user_id: localStorage.getItem("student_id"),
+              topic: "digital_electronics",
+              subtopic: "number_systems",
+              nested_subtopic: "octal",
+              quiz_score: score,
+              ai_score: 0,
+              assignment_score: 0,
+              activity_id: "de_ns_oct_001"
+            }),
+          });
+          console.log("✅ Quiz score saved to backend.");
+        } catch (error) {
+          console.error("❌ Failed to save quiz score:", error);
+        }
+      };
+      saveQuizScore();
+    }
+  }, [score]);
+
   const [questions, setQuestions] = useState([]);
   const [answers, setAnswers] = useState({});
   const [submitted, setSubmitted] = useState(false);

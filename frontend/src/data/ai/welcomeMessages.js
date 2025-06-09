@@ -1,6 +1,6 @@
 // src/data/ai/welcomeMessages.js
 
-export const welcomeMessages = {
+const welcomeMessages = {
   binary: `🎓 Welcome! I'm your AI Assistant here to help you learn about **Binary Numbers**.  
 You can ask questions, practice problems, or explore concepts.
 
