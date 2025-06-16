@@ -12,7 +12,7 @@ from openai import OpenAI
 import os
 import json
 import traceback
-from typing import List, Optional
+from typing import List, Optional, Union
 import importlib.util
 from datetime import datetime
 
@@ -45,6 +45,7 @@ async def root():
     return {"status": "ok", "message": "FastAPI backend is running"}
 
 class ChatRequest(BaseModel):
+    student_id: str
     message: str
     topic_id: str = "general"
     subtopic_id: Optional[str] = None
@@ -59,6 +60,24 @@ async def create_student(student: Student):
         raise HTTPException(status_code=400, detail="Student already exists")
     result = await students_collection.insert_one(student.dict())
     return {"message": "Student added", "student_id": str(result.inserted_id)}
+
+@app.get("/students")
+async def get_students():
+    students = []
+    async for doc in students_collection.find():
+        doc["_id"] = str(doc["_id"])  # Convert ObjectId to string for JSON
+        students.append(doc)
+    return students
+
+@app.put("/students/{student_id}")
+async def update_student_allowed(student_id: str, updated_data: dict):
+    result = await students_collection.update_one(
+        {"user_id": student_id},
+        {"$set": {"allowed": updated_data.get("allowed", False)}}
+    )
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Student not found or no change made.")
+    return {"message": "Student updated"}
 
 @app.get("/progress/{student_id}")
 async def get_progress(student_id: str):
@@ -80,11 +99,15 @@ async def get_nested_progress(
         "subtopic": subtopic_id,
         "nested_subtopic": nested_subtopic_id
     }
+    print(f"🟦 GET /get-progress query: {query}")
+
     progress = await progress_collection.find_one(query)
     if not progress:
+        print("🔴 No progress found.")
         raise HTTPException(status_code=404, detail="Progress not found")
 
     progress["_id"] = str(progress["_id"])
+    print(f"✅ Found progress: {progress}")
     
     return {
         "student_id": progress.get("student_id"),
@@ -159,6 +182,7 @@ async def chat(request: ChatRequest):
             messages.extend(request.history)
             messages.append({"role": "user", "content": request.message})
 
+        # ---- GPT RESPONSE ----
         response = client.chat.completions.create(
             model="gpt-4o",
             messages=messages,
@@ -169,6 +193,7 @@ async def chat(request: ChatRequest):
         reply = response.choices[0].message.content.strip()
         print("🤖 AI Reply:", reply)
 
+        # ---- Initialize new progress ----
         progress_flags = [False] * len(request.objectives or [])
 
         if (
@@ -187,10 +212,30 @@ async def chat(request: ChatRequest):
                     history=chat_with_latest,
                     nested_subtopic=request.nested_subtopic_id
                 )
-
             except Exception as e:
                 print("⚠️ number_systems_chat evaluator error:", e)
 
+        # ---- Load stored progress to prevent regression ----
+        stored_progress = []
+        try:
+            existing = await progress_collection.find_one({
+                "student_id": request.student_id,
+                "topic": request.topic_id,
+                "subtopic": request.subtopic_id,
+                "nested_subtopic": request.nested_subtopic_id
+            })
+            if existing:
+                stored_progress = existing.get("objective_progress", [])
+        except Exception as e:
+            print(f"⚠️ Failed to fetch stored progress: {e}")
+
+        # ---- Merge with existing progress ----
+        if stored_progress and len(stored_progress) == len(progress_flags):
+            progress_flags = [
+                new or old for new, old in zip(progress_flags, stored_progress)
+            ]
+
+        # ---- Ready message ----
         ready_prompt = None
         if progress_flags and all(p is True for p in progress_flags):
             ready_prompt = (
@@ -281,48 +326,74 @@ class ScoreUpdate(BaseModel):
     ai_score: int = 0
     assignment_score: int = 0
     activity_id: str = ""
-    objective_progress: Optional[List[bool]]=[]
+    objective_progress: Optional[List[Union[bool, str]]]=[]
+
+from fastapi import Request
 
 @app.post("/save-progress")
-async def save_nested_progress(data: ScoreUpdate):
-    print("📥 Received progress payload:", data.dict())
-    print("🟢 Objective Progress Received:", data.objective_progress) 
+async def save_progress(data: dict, request: Request):
+    student_id = data["student_id"]
+    topic = data["topic"]
+    subtopic = data["subtopic"]
+    nested_subtopic = data["nested_subtopic"]
+    new_objective_progress = data["objective_progress"]
+    quiz_score = data.get("quiz_score", 0)
+    ai_score = data.get("ai_score", 0)
+    assignment_score = data.get("assignment_score", 0)
 
-    query = {
-        "student_id": data.student_id,
-        "topic": data.topic,
-        "subtopic": data.subtopic,
-        "nested_subtopic": data.nested_subtopic
-    }
+    print(f"📩 Saving progress for {student_id} - {topic}/{subtopic}/{nested_subtopic}")
+    print(f"📊 Incoming - quiz: {quiz_score}, ai: {ai_score}, flags: {new_objective_progress}")
 
-    existing = await progress_collection.find_one(query)
+    existing = await progress_collection.find_one({
+        "student_id": student_id,
+        "topic": topic,
+        "subtopic": subtopic,
+        "nested_subtopic": nested_subtopic
+    })
+
+    def merge_flags(old, new):
+        merged = []
+        for o, n in zip(old, new):
+            if o is True or n is True:
+                merged.append(True)
+            elif o == "partial" or n == "partial":
+                merged.append("partial")
+            else:
+                merged.append(False)
+        return merged
 
     if existing:
-        updated = {
-            "quiz_score": max(existing.get("quiz_score", 0), data.quiz_score),
-            "ai_score": max(existing.get("ai_score", 0), data.ai_score),
-            "assignment_score": max(existing.get("assignment_score", 0), data.assignment_score),
-            "activity_id": data.activity_id,
-            "objective_progress": data.objective_progress,
-            "updated_at": datetime.utcnow()
-        }
-        await progress_collection.update_one(query, {"$set": updated})
-        return {"message": "Progress updated"}
+        old_flags = existing.get("objective_progress", [False] * len(new_objective_progress))
+        merged_flags = merge_flags(old_flags, new_objective_progress)
 
+        updated_doc = {
+            "quiz_score": max(quiz_score, existing.get("quiz_score", 0)),
+            "ai_score": max(existing.get("ai_score", 0), ai_score),
+            "assignment_score": max(existing.get("assignment_score", 0), assignment_score),
+            "objective_progress": merged_flags
+        }
+
+        print(f"📝 Updating existing document with: {updated_doc}")
+
+        await progress_collection.update_one(
+            {"_id": existing["_id"]},
+            {"$set": updated_doc}
+        )
     else:
-        record = {
-            **query,
-            "quiz_score": data.quiz_score,
-            "ai_score": data.ai_score,
-            "assignment_score": data.assignment_score,
-            "activity_id": data.activity_id,
-            "objective_progress": data.objective_progress,
-            "updated_at": datetime.utcnow()
+        new_doc = {
+            "student_id": student_id,
+            "topic": topic,
+            "subtopic": subtopic,
+            "nested_subtopic": nested_subtopic,
+            "quiz_score": quiz_score,
+            "ai_score": ai_score,
+            "assignment_score": assignment_score,
+            "objective_progress": new_objective_progress
         }
-        await progress_collection.insert_one(record)
-        return {"message": "Progress created"}
+        print(f"🆕 Inserting new document: {new_doc}")
+        await progress_collection.insert_one(new_doc)
 
-app.include_router(students.router)
+    return {"status": "success"}
 
 @app.get("/progress-all/{student_id}")
 async def get_user_progress(student_id: str):
@@ -333,21 +404,3 @@ async def get_user_progress(student_id: str):
         results.append(doc)
     return results
 
-@app.get("/get-progress")
-async def get_specific_progress(
-    student_id: str,
-    topic_id: str,
-    subtopic_id: str,
-    nested_subtopic_id: str
-):
-    query = {
-        "student_id": student_id,
-        "topic": topic_id,
-        "subtopic": subtopic_id,
-        "nested_subtopic": nested_subtopic_id
-    }
-    progress = await progress_collection.find_one(query)
-    if not progress:
-        raise HTTPException(status_code=404, detail="Progress not found")
-    progress["_id"] = str(progress["_id"])
-    return progress

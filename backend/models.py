@@ -1,11 +1,13 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from typing import Dict, Optional
 from datetime import datetime
 
 class Student(BaseModel):
     user_id: str
-    name: str
-    email: str
+    first_name: str
+    last_name: str
+    email: EmailStr
+    allowed: bool = True
 
 class Progress(BaseModel):
     student_id: str

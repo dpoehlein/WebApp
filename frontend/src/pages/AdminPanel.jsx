@@ -25,21 +25,35 @@ const AdminPanel = () => {
   }, []);
 
   const handleAdd = async () => {
-    if (!newStudent.user_id) return;
+    if (!newStudent.user_id || !newStudent.first_name || !newStudent.last_name || !newStudent.email) {
+      setError("Please fill out all fields.");
+      return;
+    }
+
+    const payload = { ...newStudent, allowed: true };
+    console.log("📤 Sending student payload:", payload);
+
     try {
       const res = await fetch("http://localhost:8000/students", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...newStudent, allowed: true }),
+        body: JSON.stringify(payload),
       });
+
+      const text = await res.text();
+      console.log("🧾 Server response:", res.status, text);
+
       if (!res.ok) throw new Error("Add failed");
+
       await fetchStudents();
       setNewStudent({ user_id: '', first_name: '', last_name: '', email: '' });
-    } catch {
+      setError(null);
+    } catch (err) {
+      console.error("❌ Failed to add student:", err);
       setError("Failed to add student.");
     }
   };
-
+  
   const handleDelete = async (user_id) => {
     try {
       const res = await fetch(`http://localhost:8000/students/${user_id}`, {

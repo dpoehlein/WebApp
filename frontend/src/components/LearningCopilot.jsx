@@ -3,11 +3,12 @@ import axios from 'axios';
 import ReactMarkdown from 'react-markdown';
 import welcomeMessages from '../data/ai/welcomeMessages';
 
-const AIChatAssistant = ({
+const LearningCopilot = ({
   topicId = "general",
   subtopicId = "number_systems",
   nestedSubtopicId = "binary",
-  objectives = [],           // This prop contains the learning objective progress array from parent
+  objectives = [],
+  objectiveProgress = [],
   onProgressUpdate,
   onScoreUpdate,
   QuizModal
@@ -15,7 +16,6 @@ const AIChatAssistant = ({
   const [input, setInput] = useState('');
   const [chat, setChat] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [objectiveProgress, setObjectiveProgress] = useState([]);
   const [objectiveEvidence, setObjectiveEvidence] = useState({});
   const [aiScore, setAiScore] = useState(null);
   const [quizScore, setQuizScore] = useState(null);
@@ -24,26 +24,14 @@ const AIChatAssistant = ({
   const [firstPromptSent, setFirstPromptSent] = useState(false);
   const [completionMessageSent, setCompletionMessageSent] = useState(false);
   const [progressLoaded, setProgressLoaded] = useState(false);
+  const studentId = localStorage.getItem("student_id");
 
-  const formattedTitle = nestedSubtopicId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  const formattedTitle = nestedSubtopicId.replace(/_/g, ' ').replace(/\w/g, c => c.toUpperCase());
   const welcomeMessageFn = welcomeMessages[nestedSubtopicId];
   const welcomeMessage = welcomeMessageFn
     ? (typeof welcomeMessageFn === 'function' ? welcomeMessageFn(formattedTitle) : welcomeMessageFn)
     : welcomeMessages['general'](formattedTitle);
 
-  // Sync internal objectiveProgress state with the 'objectives' prop when it changes
-  useEffect(() => {
-    if (objectives && objectives.length > 0) {
-      setObjectiveProgress(prev => {
-        if (JSON.stringify(prev) !== JSON.stringify(objectives)) {
-          return objectives;
-        }
-        return prev;
-      });
-    }
-  }, [objectives]);
-
-  // Load saved progress on mount or when topic/subtopic changes
   useEffect(() => {
     async function fetchSavedProgress() {
       const studentId = localStorage.getItem("student_id");
@@ -61,48 +49,38 @@ const AIChatAssistant = ({
 
         const { objective_progress = [], ai_score = 0, quiz_score = 0 } = res.data || {};
 
-        setObjectiveProgress(objective_progress);
-        setAiScore(ai_score);
-        setQuizScore(quiz_score);
-
         if (typeof onProgressUpdate === "function")
           onProgressUpdate(objective_progress);
         if (typeof onScoreUpdate === "function")
           onScoreUpdate(ai_score);
 
-        setProgressLoaded(true);  // <---- IMPORTANT: set this here so sendMessage can work
-
+        setAiScore(ai_score);
+        setQuizScore(quiz_score);
+        setProgressLoaded(true);
       } catch (error) {
         console.error("Failed to load saved progress", error);
-        setProgressLoaded(true); // Mark loaded even if failed to avoid blocking indefinitely
+        setProgressLoaded(true);
       }
     };
 
     fetchSavedProgress();
   }, [topicId, subtopicId, nestedSubtopicId, onProgressUpdate, onScoreUpdate]);
 
-  // Scroll chat to bottom when chat or loading state changes
   useEffect(() => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
   }, [chat, loading]);
 
-  // Calculate score from objective flags
   const calculateGrade = (progressFlags) => {
     const total = progressFlags.length;
     const score = progressFlags.reduce((acc, p) => acc + (p === true ? 1 : p === 'partial' ? 0.5 : 0), 0);
     return total > 0 ? Math.round((score / total) * 100) : 0;
   };
 
-  // Save AI score and progress flags to backend
   const saveAIScoreToBackend = async (score, objective_progress) => {
     const studentId = localStorage.getItem("student_id");
     if (!studentId || !topicId || !subtopicId || !nestedSubtopicId) return;
-
-    if (!Array.isArray(objective_progress) || objective_progress.some(p => typeof p !== "boolean")) {
-      console.warn("⚠️ objective_progress is not a clean array of booleans:", objective_progress);
-    }
 
     try {
       const response = await fetch("http://localhost:8000/save-progress", {
@@ -121,9 +99,7 @@ const AIChatAssistant = ({
         }),
       });
 
-      if (response.ok) {
-        console.log("✅ AI Score and progress saved:", score, objective_progress);
-      } else {
+      if (!response.ok) {
         const err = await response.text();
         console.error("❌ Save failed:", response.status, err);
       }
@@ -132,10 +108,8 @@ const AIChatAssistant = ({
     }
   };
 
-  // Send user message and handle AI reply and progress updates
   const sendMessage = async (customMessage = null) => {
-    console.log("sendMessage called, progressLoaded =", progressLoaded);
-    if (!progressLoaded) return;  // Block sending until progress is loaded
+    if (!progressLoaded) return;
     const messageToSend = customMessage || input;
     if (!messageToSend.trim()) return;
 
@@ -145,28 +119,21 @@ const AIChatAssistant = ({
     setInput('');
     setLoading(true);
 
-    // Reset completion message when a new chat starts
-    if (!firstPromptSent) {
-      setCompletionMessageSent(false);
-    }
+    if (!firstPromptSent) setCompletionMessageSent(false);
 
-    let res;
     try {
       let reply = '';
 
-      if (!firstPromptSent && /\b(quiz|help|practice)\b/.test(messageToSend.toLowerCase())) {
-        if (objectiveProgress.some(p => p === true)) {
-          reply = "Welcome back! Let's continue building on your knowledge. Can you convert the decimal number 13 to an 8-bit binary number?";
-        } else {
-          reply = "Let's begin with the basics: What is the difference between the decimal and binary number systems?";
-        }
+      if (!firstPromptSent && /(quiz|help|practice)/.test(messageToSend.toLowerCase())) {
+        reply = "Let's begin with the basics: What is the difference between the decimal and binary number systems?";
         setChat(prev => [...prev, { role: 'assistant', content: reply }]);
         setFirstPromptSent(true);
         setLoading(false);
         return;
       }
 
-      res = await axios.post('http://localhost:8000/chat', {
+      const res = await axios.post('http://localhost:8000/chat', {
+        student_id: studentId,
         message: messageToSend,
         topic_id: topicId,
         subtopic_id: subtopicId,
@@ -178,18 +145,10 @@ const AIChatAssistant = ({
       reply = res.data.reply;
       const progressFlags = res.data.progress || [];
 
-      console.log("📤 Sent message:", messageToSend);
-      console.log("📥 AI Reply:", reply);
-      console.log("🎯 Progress Flags:", progressFlags);
-
       setChat(prev => [...prev, { role: 'assistant', content: reply }]);
 
       if (Array.isArray(progressFlags)) {
         const newScore = calculateGrade(progressFlags);
-
-        console.log("🏆 AI Score:", newScore);
-
-        saveAIScoreToBackend(newScore, progressFlags);
 
         setObjectiveEvidence(prev => {
           const updated = { ...prev };
@@ -197,25 +156,25 @@ const AIChatAssistant = ({
             if (flag === true) updated[i] = (updated[i] || 0) + 1;
           });
 
-          setObjectiveProgress(prev => progressFlags.map((flag, i) => {
-            const current = prev[i];
+          const newProgress = progressFlags.map((flag, i) => {
+            const current = objectiveProgress[i];
             if (current === true) return true;
             if (flag === true) return true;
             if (flag === 'partial' || current === 'partial') return 'partial';
             return false;
-          }));
+          });
 
+          if (typeof onProgressUpdate === 'function') onProgressUpdate(newProgress);
           return updated;
         });
+
+        saveAIScoreToBackend(newScore, progressFlags);
 
         setAiScore(prev => {
           const final = Math.max(prev ?? 0, newScore);
           if (typeof onScoreUpdate === 'function') onScoreUpdate(final);
           return final;
         });
-
-        const best = quizScore !== null ? Math.max(quizScore, newScore) : newScore;
-        if (typeof onProgressUpdate === 'function') onProgressUpdate(progressFlags);
 
         if (progressFlags.length > 0 && progressFlags.every(p => p === true) && !completionMessageSent) {
           setChat(prev => [...prev, {
@@ -227,12 +186,10 @@ const AIChatAssistant = ({
       }
     } catch (err) {
       console.error("💥 Chat error:", err);
-      if (!res || !res.data || !res.data.reply) {
-        setChat(prev => [...prev, {
-          role: 'assistant',
-          content: "⚠️ Sorry, something went wrong."
-        }]);
-      }
+      setChat(prev => [...prev, {
+        role: 'assistant',
+        content: "⚠️ Sorry, something went wrong."
+      }]);
     } finally {
       setLoading(false);
     }
@@ -241,7 +198,6 @@ const AIChatAssistant = ({
   const handleQuizComplete = ({ score }) => {
     setQuizScore(score);
     const best = aiScore !== null ? Math.max(aiScore, score) : score;
-    if (typeof onProgressUpdate === 'function') onProgressUpdate(objectiveProgress, best);
     if (typeof onScoreUpdate === 'function') onScoreUpdate(best);
   };
 
@@ -293,4 +249,4 @@ const AIChatAssistant = ({
   );
 };
 
-export default AIChatAssistant;
+export default LearningCopilot;

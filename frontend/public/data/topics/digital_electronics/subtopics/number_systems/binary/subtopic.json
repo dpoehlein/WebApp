@@ -1,5 +1,6 @@
 {
   "title": "Binary Numbers",
+  "description": "Learn how binary numbers are used to represent digital states and how to convert between binary and decimal.",
   "learning_objectives": [
     "Understand binary number representation",
     "Convert between binary and decimal"

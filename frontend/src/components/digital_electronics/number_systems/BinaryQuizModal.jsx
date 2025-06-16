@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 
 const BinaryQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
   if (!isOpen) return null;
@@ -60,6 +60,11 @@ const BinaryQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
       type: "definition",
       question: "How many bits make up a byte?",
       correctAnswer: "8"
+    },
+    {
+      type: "definition",
+      question: "What is the value of the most significant bit (MSB) in 8-bit binary?",
+      correctAnswer: "128"
     }
   ];
 
@@ -80,106 +85,60 @@ const BinaryQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
   };
 
   const handleSubmit = () => {
-    let correct = 0;
+    let score = 0;
 
-    questions.forEach((q, i) => {
-      if (answers[i]?.trim() === q.correctAnswer) {
-        correct++;
+    // Initialize counters for each of the 6 binary learning objectives
+    const objectiveCounts = {
+      0: { correct: 0, total: 0 }, // base-2
+      1: { correct: 0, total: 0 }, // decimal ➝ binary
+      2: { correct: 0, total: 0 }, // binary ➝ decimal
+      3: { correct: 0, total: 0 }, // MSB / LSB
+      4: { correct: 0, total: 0 }, // nibble/byte
+      5: { correct: 0, total: 0 }  // place values
+    };
+
+    questions.forEach((q, index) => {
+      const answer = (answers[index] || "").trim();
+      const correct = q.correctAnswer.trim();
+      const isCorrect = answer === correct;
+
+      // Determine objective index
+      let objIndex = null;
+      if (q.type === "bin_to_dec") objIndex = 2;
+      if (q.type === "dec_to_bin") objIndex = 1;
+      if (q.type === "definition") {
+        if (q.question.includes("nibble") || q.question.includes("byte")) objIndex = 4;
+        else if (q.question.includes("most significant")) objIndex = 3;
+        else if (q.question.includes("bits are in")) objIndex = 0;
+        else objIndex = 5;
       }
+
+      if (objIndex !== null) {
+        objectiveCounts[objIndex].total++;
+        if (isCorrect) objectiveCounts[objIndex].correct++;
+      }
+
+      if (isCorrect) score++;
     });
 
-    const finalScore = Math.round((correct / questions.length) * 100);
-    setScore(finalScore);
+    const finalScore = Math.round((score / questions.length) * 100);
     setSubmitted(true);
+    setScore(finalScore);
 
-    if (onQuizComplete) {
-      const objectiveMap = {
-        bin_to_dec: 'bin_to_dec',
-        dec_to_bin: 'dec_to_bin',
-        definition: 'bit_nibble_byte',
-      };
+    // Convert correct/total counts to flags: true / "partial" / false
+    const objective_progress = Object.keys(objectiveCounts).map((key) => {
+      const { correct, total } = objectiveCounts[key];
+      const ratio = total === 0 ? 0 : correct / total;
+      if (ratio >= 0.67) return true;
+      if (ratio >= 0.34) return "partial";
+      return false;
+    });
 
-      const objectiveCounts = {};
-      questions.forEach((q, i) => {
-        const key = objectiveMap[q.type];
-        if (!objectiveCounts[key]) {
-          objectiveCounts[key] = { correct: 0, total: 0 };
-        }
-        objectiveCounts[key].total++;
-        if (answers[i]?.trim() === q.correctAnswer) {
-          objectiveCounts[key].correct++;
-        }
-      });
-
-      const achievedObjectives = Object.entries(objectiveCounts)
-        .filter(([_, stats]) => stats.correct / stats.total >= 0.67)
-        .map(([key]) => key);
-
-      const allObjectiveKeys = Object.values(objectiveMap);
-      const objective_progress = allObjectiveKeys.map((key) =>
-        achievedObjectives.includes(key) ? true : false
-      );
-
-      onQuizComplete({
-        score: finalScore,
-        objectiveKeys: achievedObjectives,
-        objective_progress
-      });
-    }
-  };
-
-  useEffect(() => {
-    if (score !== null && score > 0 && submitted) {
-      const saveQuizScore = async () => {
-        try {
-          const objectiveMap = {
-            bin_to_dec: 'bin_to_dec',
-            dec_to_bin: 'dec_to_bin',
-            definition: 'bit_nibble_byte'
-          };
-
-          const objectiveCounts = {};
-          questions.forEach((q, i) => {
-            const key = objectiveMap[q.type];
-            if (!objectiveCounts[key]) objectiveCounts[key] = { correct: 0, total: 0 };
-            objectiveCounts[key].total++;
-            if (answers[i]?.trim() === q.correctAnswer) {
-              objectiveCounts[key].correct++;
-            }
-          });
-
-          const achievedObjectives = Object.entries(objectiveCounts)
-            .filter(([_, stats]) => stats.correct / stats.total >= 0.67)
-            .map(([key]) => key);
-
-          const allObjectiveKeys = Object.values(objectiveMap);
-          const objective_progress = allObjectiveKeys.map((key) =>
-            achievedObjectives.includes(key) ? true : false
-          );
-
-          await fetch("http://localhost:8000/save-progress", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              student_id: localStorage.getItem("student_id"),
-              topic: "digital_electronics",
-              subtopic: "number_systems",
-              nested_subtopic: "binary",
-              quiz_score: score,
-              ai_score: 0,
-              assignment_score: 0,
-              objective_progress: objective_progress,
-              activity_id: "de_ns_bin_001"
-            }),
-          });
-          console.log("✅ Quiz score + objectives saved to backend.");
-        } catch (error) {
-          console.error("❌ Failed to save quiz data:", error);
-        }
-      };
-      saveQuizScore();
-    }
-  }, [score, submitted]);
+    onQuizComplete({
+      score: finalScore,
+      objective_progress
+    });
+  };  
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">

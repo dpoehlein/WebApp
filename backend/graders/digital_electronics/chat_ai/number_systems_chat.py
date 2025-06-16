@@ -1,6 +1,7 @@
 import os
 import json
 import re
+import ast
 from typing import List, Union
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -74,8 +75,8 @@ def evaluate_number_systems_chat(message: str, history: List[dict], nested_subto
     eval_prompt = (
         f"You are an AI tutor evaluating a student's understanding of the following objectives for the topic '{nested_subtopic}':\n" +
         "\n".join([f"{i+1}. {obj}" for i, obj in enumerate(objectives)]) +
-        "\n\nBased on the full chat history below, return a JSON array of flags for each objective using true, false, or \"partial\":\n" +
-        "Respond ONLY with the JSON array. Do not include any explanation.\n\n" +
+        "\n\nBased on the full chat history below, return a Python-style array of flags for each objective using true, false, or 'partial':\n" +
+        "Respond ONLY with the array. Do not include any explanation.\n\n" +
         "Chat History:\n" +
         "\n".join([f"{m['role']}: {m['content']}" for m in full_chat])
     )
@@ -93,16 +94,23 @@ def evaluate_number_systems_chat(message: str, history: List[dict], nested_subto
         raw = response.choices[0].message.content.strip()
         print("📊 GPT Eval Raw:", raw)
 
-        # Replace unquoted partial with quoted "partial"
-        fixed = re.sub(r'\bpartial\b', '"partial"', raw)
-        cleaned = fixed.replace("“", '"').replace("”", '"').replace("'", '"')
+        # Replace smart quotes and ensure lowercase booleans
+        cleaned = (
+            raw.replace("“", '"')
+                .replace("”", '"')
+                .replace("‘", "'")
+                .replace("’", "'")
+                .replace("true", "True")
+                .replace("false", "False")
+        )
 
-        parsed = json.loads(cleaned)
+        # Safely evaluate with ast.literal_eval (handles true/false/'partial')
+        parsed = ast.literal_eval(cleaned)
         print("✅ Parsed Progress Flags:", parsed)
 
         if isinstance(parsed, list) and len(parsed) == len(objectives):
             return [
-                True if x is True else "partial" if x == "partial" else False
+                True if x is True else "partial" if str(x).lower() == "partial" else False
                 for x in parsed
             ]
         else:
