@@ -1,20 +1,22 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File, Request, Query
-from backend.database import students_collection, progress_collection, assignment_grades_collection
-from backend.models import Student, Progress
-from backend import students
-from bson import ObjectId
-from backend.graders.digital_electronics.chat_ai.number_systems_chat import evaluate_number_systems_chat
+# ───── Standard Library ─────
+import os
+import json
+import traceback
+import importlib.util
+from datetime import datetime
+from typing import List, Optional, Union
 
+# ───── Third-Party Libraries ─────
+from fastapi import APIRouter, FastAPI, HTTPException, UploadFile, File, Request, Query, Body 
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from openai import OpenAI
-import os
-import json
-import traceback
-from typing import List, Optional, Union
-import importlib.util
-from datetime import datetime
+
+# ───── Internal Modules ─────
+from backend.database import students_collection, progress_collection, assignment_grades_collection
+from backend.models import Student, Progress
 
 load_dotenv()
 
@@ -24,7 +26,7 @@ if api_key:
 else:
     print("❌ OPENAI_API_KEY not found!")
 
-client = OpenAI(api_key=api_key)
+client = OpenAI(api_key=api_key, http_client=None)
 
 file_path = os.path.join(os.path.dirname(__file__), "data", "ai_prompts.json")
 with open(file_path, "r", encoding="utf-8") as f:
@@ -52,14 +54,6 @@ class ChatRequest(BaseModel):
     nested_subtopic_id: Optional[str] = None
     history: list[dict] = []
     objectives: Optional[List[str]] = []
-
-@app.post("/students/")
-async def create_student(student: Student):
-    existing = await students_collection.find_one({"email": student.email})
-    if existing:
-        raise HTTPException(status_code=400, detail="Student already exists")
-    result = await students_collection.insert_one(student.dict())
-    return {"message": "Student added", "student_id": str(result.inserted_id)}
 
 @app.get("/students")
 async def get_students():
@@ -106,20 +100,39 @@ async def get_nested_progress(
         print("🔴 No progress found.")
         raise HTTPException(status_code=404, detail="Progress not found")
 
-    progress["_id"] = str(progress["_id"])
-    print(f"✅ Found progress: {progress}")
-    
+    # Ensure safe default values
+    quiz_score = progress.get("quiz_score", 0)
+    ai_score = progress.get("ai_score", 0)
+    quiz_flags = progress.get("quiz_objective_progress", [])
+    ai_flags = progress.get("ai_objective_progress", [])
+    assignment_score = progress.get("assignment_score", 0)
+
+    # Merge objective flags
+    merged_flags = [
+        q or a for q, a in zip(
+            quiz_flags + [False] * max(0, len(ai_flags) - len(quiz_flags)),
+            ai_flags + [False] * max(0, len(quiz_flags) - len(ai_flags))
+        )
+    ]
+
+    # Topic grade = best of quiz or AI score
+    topic_grade = max(quiz_score, ai_score)
+
+    print(f"✅ Merged Objective Progress: {merged_flags}")
+    print(f"🏁 Topic Grade: {topic_grade}")
+
     return {
         "student_id": progress.get("student_id"),
         "topic": progress.get("topic"),
         "subtopic": progress.get("subtopic"),
         "nested_subtopic": progress.get("nested_subtopic"),
-        "quiz_score": progress.get("quiz_score", 0),
-        "ai_score": progress.get("ai_score", 0),
-        "assignment_score": progress.get("assignment_score", 0),
+        "quiz_score": quiz_score,
+        "ai_score": ai_score,
+        "assignment_score": assignment_score,
         "activity_id": progress.get("activity_id"),
-        "objective_progress": progress.get("objective_progress", []),  # <-- Ensure this is included
-        "updated_at": progress.get("updated_at"),
+        "objective_progress": merged_flags,
+        "topic_grade": topic_grade,
+        "updated_at": progress.get("updated_at", datetime.utcnow())
     }
 
 @app.post("/progress/")
@@ -156,6 +169,26 @@ def load_objective_checker(topic_id: str, subtopic_id: Optional[str]):
     except Exception as e:
         print(f"❌ Error loading evaluator: {e}")
         return None
+    
+def load_nested_chat_evaluator(topic_id: str, subtopic_id: str):
+    try:
+        module_path = f"backend/graders/{topic_id}/chat_ai/{subtopic_id}_chat.py"
+        abs_path = os.path.join(os.path.dirname(__file__), module_path)
+        if not os.path.exists(abs_path):
+            print(f"❌ Evaluator file not found: {module_path}")
+            return None, {}
+
+        spec = importlib.util.spec_from_file_location("chat_ai", abs_path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        evaluator = getattr(module, "evaluate_chat", None)
+        objectives = getattr(module, "NESTED_OBJECTIVES", {})
+        return evaluator, objectives
+
+    except Exception as e:
+        print(f"❌ Failed to load evaluator: {e}")
+        return None, {}
 
 @app.post("/chat")
 async def chat(request: ChatRequest):
@@ -193,27 +226,23 @@ async def chat(request: ChatRequest):
         reply = response.choices[0].message.content.strip()
         print("🤖 AI Reply:", reply)
 
-        # ---- Initialize new progress ----
-        progress_flags = [False] * len(request.objectives or [])
+        # ---- Evaluate Objectives ----
+        progress_flags = []
+        chat_with_latest = request.history + [
+            {"role": "user", "content": request.message},
+            {"role": "assistant", "content": reply}
+        ]
 
-        if (
-            request.topic_id == "digital_electronics" and
-            request.subtopic_id == "number_systems" and
-            request.nested_subtopic_id
-        ):
-            try:
-                chat_with_latest = request.history + [
-                    {"role": "user", "content": request.message},
-                    {"role": "assistant", "content": reply}
-                ]
+        get_objective_state = load_objective_checker(
+            topic_id=request.topic_id,
+            subtopic_id=request.subtopic_id
+        )
 
-                progress_flags = evaluate_number_systems_chat(
-                    message=request.message,
-                    history=chat_with_latest,
-                    nested_subtopic=request.nested_subtopic_id
-                )
-            except Exception as e:
-                print("⚠️ number_systems_chat evaluator error:", e)
+        if get_objective_state:
+            progress_flags = get_objective_state(chat_with_latest)
+        else:
+            print(f"⚠️ No objective checker found for {request.topic_id}/{request.subtopic_id}")
+            progress_flags = []
 
         # ---- Load stored progress to prevent regression ----
         stored_progress = []
@@ -234,6 +263,8 @@ async def chat(request: ChatRequest):
             progress_flags = [
                 new or old for new, old in zip(progress_flags, stored_progress)
             ]
+        else:
+            print(f"⚠️ Flag length mismatch — stored: {len(stored_progress)}, new: {len(progress_flags)}")
 
         # ---- Ready message ----
         ready_prompt = None
@@ -245,6 +276,16 @@ async def chat(request: ChatRequest):
             )
 
         print("📬 Final Progress Flags:", progress_flags)
+
+        save_payload = SaveProgressRequest(
+            student_id=request.student_id,
+            topic=request.topic_id,
+            subtopic=request.subtopic_id,
+            nested_subtopic=request.nested_subtopic_id,
+            ai_score=100 if all(p is True for p in progress_flags) else 0,
+            ai_objective_progress=progress_flags
+        )
+        await save_progress(save_payload)
 
         return {
             "reply": reply,
@@ -328,72 +369,66 @@ class ScoreUpdate(BaseModel):
     activity_id: str = ""
     objective_progress: Optional[List[Union[bool, str]]]=[]
 
-from fastapi import Request
+class SaveProgressRequest(BaseModel):
+    student_id: str
+    topic: str
+    subtopic: str
+    nested_subtopic: str
+    quiz_score: Optional[int] = None
+    ai_score: Optional[int] = None
+    quiz_objective_progress: Optional[List[bool]] = None
+    ai_objective_progress: Optional[List[bool]] = None
 
 @app.post("/save-progress")
-async def save_progress(data: dict, request: Request):
-    student_id = data["student_id"]
-    topic = data["topic"]
-    subtopic = data["subtopic"]
-    nested_subtopic = data["nested_subtopic"]
-    new_objective_progress = data["objective_progress"]
-    quiz_score = data.get("quiz_score", 0)
-    ai_score = data.get("ai_score", 0)
-    assignment_score = data.get("assignment_score", 0)
+async def save_progress(payload: SaveProgressRequest):
+    query = {
+        "student_id": payload.student_id,
+        "topic": payload.topic,
+        "subtopic": payload.subtopic,
+        "nested_subtopic": payload.nested_subtopic,
+    }
 
-    print(f"📩 Saving progress for {student_id} - {topic}/{subtopic}/{nested_subtopic}")
-    print(f"📊 Incoming - quiz: {quiz_score}, ai: {ai_score}, flags: {new_objective_progress}")
+    # Fetch existing progress record
+    existing = await progress_collection.find_one(query)
 
-    existing = await progress_collection.find_one({
-        "student_id": student_id,
-        "topic": topic,
-        "subtopic": subtopic,
-        "nested_subtopic": nested_subtopic
-    })
+    # Fallbacks
+    existing_ai = existing.get("ai_objective_progress", []) if existing else []
+    existing_quiz = existing.get("quiz_objective_progress", []) if existing else []
 
-    def merge_flags(old, new):
-        merged = []
-        for o, n in zip(old, new):
-            if o is True or n is True:
-                merged.append(True)
-            elif o == "partial" or n == "partial":
-                merged.append("partial")
-            else:
-                merged.append(False)
-        return merged
+    # Update each field
+    new_ai = payload.ai_objective_progress or existing_ai
+    new_quiz = payload.quiz_objective_progress or existing_quiz
 
-    if existing:
-        old_flags = existing.get("objective_progress", [False] * len(new_objective_progress))
-        merged_flags = merge_flags(old_flags, new_objective_progress)
+    # Merge objective progress flags
+    max_len = max(len(new_ai), len(new_quiz))
+    padded_ai = new_ai + [False] * (max_len - len(new_ai))
+    padded_quiz = new_quiz + [False] * (max_len - len(new_quiz))
+    merged_flags = [a or q for a, q in zip(padded_ai, padded_quiz)]
 
-        updated_doc = {
-            "quiz_score": max(quiz_score, existing.get("quiz_score", 0)),
-            "ai_score": max(existing.get("ai_score", 0), ai_score),
-            "assignment_score": max(existing.get("assignment_score", 0), assignment_score),
-            "objective_progress": merged_flags
-        }
+    # Merge scores
+    quiz_score = payload.quiz_score if payload.quiz_score is not None else (existing.get("quiz_score", 0) if existing else 0)
+    ai_score = payload.ai_score if payload.ai_score is not None else (existing.get("ai_score", 0) if existing else 0)
+    topic_grade = max(quiz_score, ai_score)
 
-        print(f"📝 Updating existing document with: {updated_doc}")
-
-        await progress_collection.update_one(
-            {"_id": existing["_id"]},
-            {"$set": updated_doc}
-        )
-    else:
-        new_doc = {
-            "student_id": student_id,
-            "topic": topic,
-            "subtopic": subtopic,
-            "nested_subtopic": nested_subtopic,
+    update_doc = {
+        "$set": {
+            "student_id": payload.student_id,
+            "topic": payload.topic,
+            "subtopic": payload.subtopic,
+            "nested_subtopic": payload.nested_subtopic,
             "quiz_score": quiz_score,
             "ai_score": ai_score,
-            "assignment_score": assignment_score,
-            "objective_progress": new_objective_progress
+            "topic_grade": topic_grade,
+            "quiz_objective_progress": new_quiz,
+            "ai_objective_progress": new_ai,
+            "objective_progress": merged_flags,
+            "updated_at": datetime.utcnow(),
         }
-        print(f"🆕 Inserting new document: {new_doc}")
-        await progress_collection.insert_one(new_doc)
+    }
 
-    return {"status": "success"}
+    await progress_collection.update_one(query, update_doc, upsert=True)
+
+    return JSONResponse(content={"message": "Progress saved successfully."})
 
 @app.get("/progress-all/{student_id}")
 async def get_user_progress(student_id: str):
@@ -404,3 +439,5 @@ async def get_user_progress(student_id: str):
         results.append(doc)
     return results
 
+from backend import students  # Ensure import
+app.include_router(students.router)

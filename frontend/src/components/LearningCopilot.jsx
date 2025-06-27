@@ -26,7 +26,7 @@ const LearningCopilot = ({
   const [progressLoaded, setProgressLoaded] = useState(false);
   const studentId = localStorage.getItem("student_id");
 
-  const formattedTitle = nestedSubtopicId.replace(/_/g, ' ').replace(/\w/g, c => c.toUpperCase());
+  const formattedTitle = nestedSubtopicId.replace(/_/g, ' ').replace(/\w/g, c => c.toUpperCase());
   const welcomeMessageFn = welcomeMessages[nestedSubtopicId];
   const welcomeMessage = welcomeMessageFn
     ? (typeof welcomeMessageFn === 'function' ? welcomeMessageFn(formattedTitle) : welcomeMessageFn)
@@ -74,7 +74,7 @@ const LearningCopilot = ({
 
   const calculateGrade = (progressFlags) => {
     const total = progressFlags.length;
-    const score = progressFlags.reduce((acc, p) => acc + (p === true ? 1 : p === 'partial' ? 0.5 : 0), 0);
+    const score = progressFlags.reduce((acc, p) => acc + (p === true ? 1 : p === 'progress' ? 0.5 : 0), 0);
     return total > 0 ? Math.round((score / total) * 100) : 0;
   };
 
@@ -124,7 +124,7 @@ const LearningCopilot = ({
     try {
       let reply = '';
 
-      if (!firstPromptSent && /(quiz|help|practice)/.test(messageToSend.toLowerCase())) {
+      if (!firstPromptSent && /(quiz|help|practice)/.test(messageToSend.toLowerCase())) {
         reply = "Let's begin with the basics: What is the difference between the decimal and binary number systems?";
         setChat(prev => [...prev, { role: 'assistant', content: reply }]);
         setFirstPromptSent(true);
@@ -145,30 +145,45 @@ const LearningCopilot = ({
       reply = res.data.reply;
       const progressFlags = res.data.progress || [];
 
+      console.log("🎯 Progress flags received from backend:", progressFlags);
+
       setChat(prev => [...prev, { role: 'assistant', content: reply }]);
 
       if (Array.isArray(progressFlags)) {
         const newScore = calculateGrade(progressFlags);
 
-        setObjectiveEvidence(prev => {
-          const updated = { ...prev };
-          progressFlags.forEach((flag, i) => {
-            if (flag === true) updated[i] = (updated[i] || 0) + 1;
-          });
+        console.log("📊 New AI Score calculated:", newScore);
 
-          const newProgress = progressFlags.map((flag, i) => {
-            const current = objectiveProgress[i];
-            if (current === true) return true;
-            if (flag === true) return true;
-            if (flag === 'partial' || current === 'partial') return 'partial';
-            return false;
-          });
+        const updatedEvidence = { ...objectiveEvidence };
+        progressFlags.forEach((flag, i) => {
+          if (flag === true) updatedEvidence[i] = (updatedEvidence[i] || 0) + 1;
+        });
+        setObjectiveEvidence(updatedEvidence);
 
-          if (typeof onProgressUpdate === 'function') onProgressUpdate(newProgress);
-          return updated;
+        console.log("🧠 Updated objectiveEvidence counts:", updatedEvidence);
+
+        const newProgress = progressFlags.map((flag, i) => {
+          const current = objectiveProgress[i];
+          if (current === true) return true;
+          if (flag === true) return true;
+          if (flag === 'progress' || current === 'progress') return 'progress';
+          return false;
         });
 
-        saveAIScoreToBackend(newScore, progressFlags);
+        console.log("🚦 New merged progress flags:", newProgress);
+
+        if (typeof onProgressUpdate === 'function') onProgressUpdate(newProgress);
+
+        console.log("💾 Saving AI score and progress to backend:", {
+          studentId,
+          topicId,
+          subtopicId,
+          nestedSubtopicId,
+          newScore,
+          objectiveProgress: newProgress,
+        });
+        
+        saveAIScoreToBackend(newScore, newProgress);
 
         setAiScore(prev => {
           const final = Math.max(prev ?? 0, newScore);
@@ -202,13 +217,16 @@ const LearningCopilot = ({
   };
 
   return (
-    <div className="flex flex-col flex-grow h-full max-h-full overflow-hidden bg-gray-50 rounded shadow">
+    <div className="relative bg-gray-50 rounded shadow">
+
+      {/* Header */}
       <div className="bg-gray-200 px-4 py-3 shadow-sm text-sm text-gray-800 w-full">
         <p>🎓 Welcome! I'm here to help you learn <strong>{formattedTitle}</strong>.</p>
         <p>Ask anything or take the quiz when ready!</p>
       </div>
 
-      <div ref={chatContainerRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
+      {/* Chat Area — no internal scroll */}
+      <div className="px-4 py-4 space-y-2">
         {chat.map((msg, idx) => (
           <div key={idx} className={`text-sm ${msg.role === 'user' ? 'text-right' : 'text-left'}`}>
             <div className={`inline-block px-3 py-2 rounded max-w-full ${msg.role === 'user' ? 'bg-blue-200' : 'bg-gray-200'}`}>
@@ -219,7 +237,8 @@ const LearningCopilot = ({
         {loading && <div className="text-center text-gray-500">Thinking…</div>}
       </div>
 
-      <div className="border-t p-4 bg-white flex gap-2">
+      {/* Fixed Input Bar at Bottom of Viewport */}
+      <div className="fixed bottom-0 right-0 w-1/2 bg-white border-t p-4 flex gap-2 z-50">
         <input
           type="text"
           className="flex-grow p-2 border rounded"
@@ -238,6 +257,7 @@ const LearningCopilot = ({
         </button>
       </div>
 
+      {/* Quiz Modal */}
       {QuizModal && (
         <QuizModal
           isOpen={quizOpen}
@@ -246,7 +266,7 @@ const LearningCopilot = ({
         />
       )}
     </div>
-  );
+  );  
 };
 
 export default LearningCopilot;

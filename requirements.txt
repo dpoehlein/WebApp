@@ -4,19 +4,24 @@ uvicorn==0.27.1
 
 # MongoDB async driver
 motor==3.3.2
+pymongo==4.5.0  # ✅ Required for Motor
 
-# Pydantic for data validation
-pydantic==2.6.3
+# Pydantic for data validation and email
+pydantic[email]==2.6.3
 pydantic-core==2.16.3
+email-validator==2.2.0  # ✅ Required by pydantic[email]
 
 # OpenAI API
-openai==1.14.3
+openai==1.91.0  # ✅ Updated for compatibility with current client usage
 
 # Environment variable support
 python-dotenv==1.0.1
 
 # CORS middleware
 starlette==0.36.3
+
+# File upload support
+python-multipart==0.0.9  # ✅ Required for UploadFile & Form
 
 # Optional (for local dev)
 watchfiles==0.21.0

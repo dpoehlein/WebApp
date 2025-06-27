@@ -1,4 +1,3 @@
-
 import React, { useMemo, useEffect, useState, Suspense, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import ContentContainer from "../../components/ContentContainer";
@@ -6,7 +5,8 @@ import LearningCopilot from "../../components/LearningCopilot.jsx";
 import Breadcrumb from "../../components/Breadcrumb";
 import Footer from "../../components/Footer";
 import Banner from "../../components/Banner";
-import learningObjectives from '../../data/ai/learningObjectives';
+import LearningObjectives from "../../components/LearningObjectives"; // ✅ the UI component
+import learningObjectives from "../../data/ai/learningObjectives";  // ✅ the data
 
 const walkthroughComponents = {
   binary: React.lazy(() => import('../../components/digital_electronics/number_systems/BinaryDemo')),
@@ -35,6 +35,10 @@ const NestedSubtopicPage = ({ topicId: propTopicId, subtopicId: propSubtopicId, 
   const [practiceData, setPracticeData] = useState(null);
   const [videoData, setVideoData] = useState(null);
   const [objectiveProgress, setObjectiveProgress] = useState([]);
+  useEffect(() => {
+    console.log("📘 Updated objectiveProgress in NestedSubtopicPage:", objectiveProgress);
+  }, [objectiveProgress]);
+  
   const [quizScore, setQuizScore] = useState(0);
   const [aiScore, setAIScore] = useState(0);
   const [isQuizOpen, setIsQuizOpen] = useState(false);
@@ -47,15 +51,17 @@ const NestedSubtopicPage = ({ topicId: propTopicId, subtopicId: propSubtopicId, 
   }, [topicId, subtopicId, nestedSubtopicId]);
 
   const mergeFlags = (prev, next) => {
-    return prev.map((oldVal, idx) => {
+    const maxLength = Math.max(prev.length, next.length);
+    return Array.from({ length: maxLength }).map((_, idx) => {
+      const oldVal = prev[idx];
       const newVal = next[idx];
-      if (oldVal === true || newVal === true) return true;
-      if (oldVal === 'partial' || newVal === 'partial') return 'partial';
+      if (newVal === true || oldVal === true) return true;
+      if (newVal === 'partial' || oldVal === 'partial') return 'partial';
       return false;
     });
   };
-
-  const persistProgress = async (flags, quiz, ai) => {
+  
+  const persistProgress = async (flags, quiz, ai, source = "ai") => {
     const studentId = localStorage.getItem("student_id");
     if (!studentId) return;
     try {
@@ -67,46 +73,63 @@ const NestedSubtopicPage = ({ topicId: propTopicId, subtopicId: propSubtopicId, 
           topic: topicId,
           subtopic: subtopicId,
           nested_subtopic: nestedSubtopicId,
-          objective_progress: flags,
-          quiz_score: quiz,
-          ai_score: ai
+          ai_objective_progress: source === "ai" ? flags : undefined,
+          quiz_objective_progress: source === "quiz" ? flags : undefined,
+          ai_score: source === "ai" ? ai : undefined,
+          quiz_score: source === "quiz" ? quiz : undefined
         })
-      });
+      });      
     } catch (err) {
       console.error("Failed to auto-persist progress:", err);
     }
   };
 
   useEffect(() => {
-    if (hasFetchedProgressRef.current) return;
+    if (hasFetchedProgressRef.current || !objectives.length) {
+      console.log("⏭ Skipping progress fetch. Already fetched or objectives not ready.");
+      return;
+    }
+
+    console.log("🚀 FETCHING PROGRESS: triggered once only");
+    hasFetchedProgressRef.current = true;
+
     const studentId = localStorage.getItem("student_id");
-    if (!studentId || !objectives.length) return;
+    if (!studentId) return;
 
     const fetchSavedProgress = async () => {
       try {
         const res = await fetch(`http://localhost:8000/get-progress?student_id=${studentId}&topic_id=${topicId}&subtopic_id=${subtopicId}&nested_subtopic_id=${nestedSubtopicId}`);
         const data = await res.json();
+
         const defaultProgress = objectives.map(() => false);
         const loaded = Array.isArray(data.objective_progress) ? data.objective_progress : defaultProgress;
+
         setQuizScore(data.quiz_score || 0);
         setAIScore(data.ai_score || 0);
-        const prior = objectiveProgress.length ? objectiveProgress : defaultProgress;
-        const merged = mergeFlags(prior, loaded);
-        const hasChanges = JSON.stringify(prior) !== JSON.stringify(merged);
-        if (hasChanges) {
+        setTopicGrade(data.topic_grade || 0);
+
+        const merged = loaded; // ✅ Trust backend merged flags
+
+        const last = localStorage.getItem("last_saved_progress");
+        const hasChanged = JSON.stringify(merged) !== last;
+
+        if (hasChanged) {
           setObjectiveProgress(merged);
-          persistProgress(merged, data.quiz_score || 0, data.ai_score || 0);
+          persistProgress(merged, data.quiz_score || 0, data.ai_score || 0, "ai");
+          localStorage.setItem("last_saved_progress", JSON.stringify(merged));
+        } else {
+          setObjectiveProgress(merged); // ✅ still update UI if frontend state was stale
         }
-        localStorage.setItem("last_saved_progress", JSON.stringify(merged));
+
         hasLoadedRef.current = true;
-        hasFetchedProgressRef.current = true;
       } catch (err) {
-        console.error("Failed to load saved progress:", err);
+        console.error("❌ Failed to load saved progress:", err);
         setObjectiveProgress(objectives.map(() => false));
       }
     };
+
     fetchSavedProgress();
-  }, [topicId, subtopicId, nestedSubtopicId, objectives.length]);
+  }, [objectives.length]);
 
   useEffect(() => {
     Promise.all([
@@ -132,7 +155,7 @@ const NestedSubtopicPage = ({ topicId: propTopicId, subtopicId: propSubtopicId, 
       localStorage.setItem("last_saved_progress", current);
       const timeout = setTimeout(() => {
         if (objectiveProgress.length === objectives.length) {
-          persistProgress(objectiveProgress, quizScore, aiScore);
+          persistProgress(objectiveProgress, quizScore, aiScore, "ai");
         }
       }, 1000);
       return () => clearTimeout(timeout);
@@ -147,7 +170,7 @@ const NestedSubtopicPage = ({ topicId: propTopicId, subtopicId: propSubtopicId, 
     if (objective_progress?.length === objectives.length) {
       setObjectiveProgress(prev => {
         const merged = mergeFlags(prev, objective_progress);
-        persistProgress(merged, score, aiScore); // 🔥 Manual save
+        persistProgress(merged, score, aiScore, "quiz"); // 🔥 Manual save
         return merged;
       });
     } else if (objectiveKeys) {
@@ -157,18 +180,17 @@ const NestedSubtopicPage = ({ topicId: propTopicId, subtopicId: propSubtopicId, 
           const index = objectives.findIndex(obj => obj.key === key);
           if (index !== -1) updated[index] = true;
         });
-        persistProgress(updated, score, aiScore); // 🔥 Manual save
+        persistProgress(updated, score, aiScore, "quiz"); // 🔥 Manual save
         return updated;
       });
     } else {
-      persistProgress(objectiveProgress, score, aiScore); // fallback
+      persistProgress(objectiveProgress, score, aiScore, "quiz"); // fallback
     }
   };
   
   const completed = objectiveProgress.filter(p => p === true).length;
   const total = objectives.length;
-  const aiPercent = total > 0 ? Math.round((completed / total) * 100) : 0;
-  const overallGrade = Math.max(aiPercent, aiScore, quizScore);
+  const [topicGrade, setTopicGrade] = useState(0);
 
   if (!subtopicData) return <div className="p-8 text-gray-600">Loading...</div>;
 
@@ -192,7 +214,7 @@ const NestedSubtopicPage = ({ topicId: propTopicId, subtopicId: propSubtopicId, 
                     <strong>📊 Module Progress Tracking:</strong> As you use the Learning Copilot or complete the quiz, your progress toward completing the learning objectives will update.
                   </p>
                   <div className="flex justify-between items-center">
-                    <div className="text-lg font-bold text-gray-800">Topic Grade: {overallGrade}%</div>
+                    <div className="text-lg font-bold text-gray-800">Topic Grade: {topicGrade}%</div>
                     <div className="text-sm text-gray-600 space-x-4">
                       <span>🟢 Completed</span>
                       <span>🟡 Making Progress</span>
@@ -201,18 +223,7 @@ const NestedSubtopicPage = ({ topicId: propTopicId, subtopicId: propSubtopicId, 
                   </div>
                 </div>
                 <h2 className="text-lg font-semibold mb-2">Learning Objectives</h2>
-                <ul className="list-none pl-0 space-y-2 text-gray-700">
-                  {objectives.map((obj, idx) => {
-                    const status = objectiveProgress[idx];
-                    const icon = status === true ? '🟢' : status === 'partial' ? '🟡' : '🔵';
-                    return (
-                      <li key={idx} className="flex items-start gap-2">
-                        <span className="mt-1">{icon}</span>
-                        <span>{typeof obj === 'object' ? obj.text : obj}</span>
-                      </li>
-                    );
-                  })}
-                </ul>
+                <LearningObjectives objectives={objectives} progress={objectiveProgress} />
               </div>
             )}
             {WalkthroughComponent ? (
@@ -276,8 +287,8 @@ const NestedSubtopicPage = ({ topicId: propTopicId, subtopicId: propSubtopicId, 
             nestedSubtopicId={nestedSubtopicId}
             objectives={objectives}
             objectiveProgress={objectiveProgress}
-            onProgressUpdate={(flags) => setObjectiveProgress(prev => mergeFlags(prev, flags))}
-            onScoreUpdate={setAIScore}
+            onProgressUpdate={(progressFlags) => setObjectiveProgress(progressFlags)}
+            onScoreUpdate={(score) => setAIScore(score)}
             QuizModal={QuizModal}
           />
         </div>

@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr
-from typing import Dict, Optional
+from typing import List, Optional
 from datetime import datetime
 
 class Student(BaseModel):
@@ -12,7 +12,13 @@ class Student(BaseModel):
 class Progress(BaseModel):
     student_id: str
     topic: str
-    subtopics: Dict[str, dict]
+    subtopic: str
+    nested_subtopic: str
+    quiz_score: int = 0
+    ai_score: int = 0
+    assignment_score: int = 0
+    activity_id: Optional[str] = None
+    objective_progress: List[bool]
 
 class AssignmentGrade(BaseModel):
     student_id: str

@@ -60,7 +60,7 @@ NESTED_OBJECTIVES = {
     # Additional subtopics can be added here.
 }
 
-def evaluate_number_systems_chat(message: str, history: List[dict], nested_subtopic: str) -> List[Union[bool, str]]:
+def evaluate_chat(message: str, history: List[dict], nested_subtopic: str) -> List[Union[bool, str]]:
     print(f"🔍 EVALUATING with nested_subtopic = {nested_subtopic}")
     print(f"📝 Message: {message}")
     print(f"🧠 History length: {len(history)}")
@@ -104,17 +104,25 @@ def evaluate_number_systems_chat(message: str, history: List[dict], nested_subto
                 .replace("false", "False")
         )
 
-        # Safely evaluate with ast.literal_eval (handles true/false/'partial')
+                # Safely evaluate with ast.literal_eval (handles true/false/'partial')
         parsed = ast.literal_eval(cleaned)
         print("✅ Parsed Progress Flags:", parsed)
 
-        if isinstance(parsed, list) and len(parsed) == len(objectives):
-            return [
+        # Ensure output matches the number of objectives
+        if isinstance(parsed, list):
+            normalized = [
                 True if x is True else "partial" if str(x).lower() == "partial" else False
                 for x in parsed
             ]
+            # Pad if too short
+            while len(normalized) < len(objectives):
+                normalized.append(False)
+            # Trim if too long (shouldn’t happen, but just in case)
+            normalized = normalized[:len(objectives)]
+            print(f"✅ Normalized (padded) Progress Flags: {normalized}")
+            return normalized
         else:
-            print("⚠️ GPT returned invalid array or length mismatch:", parsed)
+            print("⚠️ GPT returned non-list format:", parsed)
             return [False] * len(objectives)
 
     except Exception as e:
