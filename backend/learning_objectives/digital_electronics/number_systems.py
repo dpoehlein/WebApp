@@ -47,11 +47,12 @@ keywords = {
 }
 
 def get_objective_state(history):
-    user_messages = [msg["content"].lower() for msg in history if msg["role"] == "user"]
+    # ✅ Pull both user and assistant content
+    relevant_messages = [msg["content"].lower() for msg in history if msg["role"] in ("user", "assistant")]
     result_flags = []
 
     print("🔍 AI Copilot Debug Log — Evaluating Chat History")
-    for i, msg in enumerate(user_messages):
+    for i, msg in enumerate(relevant_messages):
         print(f"[{i}] {msg}")
 
     active_subtopic = "binary"
@@ -64,7 +65,7 @@ def get_objective_state(history):
 
         print(f"\n🧠 Checking Objective: {obj_id} — needs {obj['min_successes']} hits")
 
-        for msg in user_messages:
+        for msg in relevant_messages:
             for pattern in patterns:
                 if re.search(pattern, msg):
                     print(f"✅ Match: '{pattern}' in '{msg}'")

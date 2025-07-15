@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from openai import OpenAI
+from backend.objective_loader import load_objective_checker
 
 # ───── Internal Modules ─────
 from backend.database import students_collection, progress_collection, assignment_grades_collection
@@ -100,23 +101,13 @@ async def get_nested_progress(
         print("🔴 No progress found.")
         raise HTTPException(status_code=404, detail="Progress not found")
 
-    # Ensure safe default values
     quiz_score = progress.get("quiz_score", 0)
     ai_score = progress.get("ai_score", 0)
-    quiz_flags = progress.get("quiz_objective_progress", [])
-    ai_flags = progress.get("ai_objective_progress", [])
     assignment_score = progress.get("assignment_score", 0)
-
-    # Merge objective flags
-    merged_flags = [
-        q or a for q, a in zip(
-            quiz_flags + [False] * max(0, len(ai_flags) - len(quiz_flags)),
-            ai_flags + [False] * max(0, len(quiz_flags) - len(ai_flags))
-        )
-    ]
-
-    # Topic grade = best of quiz or AI score
     topic_grade = max(quiz_score, ai_score)
+
+    # ✅ USE the saved merged flags
+    merged_flags = progress.get("objective_progress", [])
 
     print(f"✅ Merged Objective Progress: {merged_flags}")
     print(f"🏁 Topic Grade: {topic_grade}")
@@ -153,23 +144,22 @@ async def get_grades(student_id: str):
         results.append(grade)
     return results
 
-def load_objective_checker(topic_id: str, subtopic_id: Optional[str]):
-    if not subtopic_id:
-        return None
-    path = f"backend/learning_objectives/{topic_id}/{subtopic_id}.py"
-    abs_path = os.path.join(os.path.dirname(__file__), path)
-    if not os.path.exists(abs_path):
-        print(f"⚠️ No custom evaluator at {path}")
-        return None
-    try:
-        spec = importlib.util.spec_from_file_location("objectives", abs_path)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        return getattr(module, "get_objective_state", None)
-    except Exception as e:
-        print(f"❌ Error loading evaluator: {e}")
-        return None
-    
+def load_objective_checker(topic_id: str, subtopic_id: Optional[str], nested_subtopic_id: Optional[str] = None):
+    if nested_subtopic_id:
+        nested_path = f"backend/learning_objectives/{topic_id}/{subtopic_id}/{nested_subtopic_id}.py"
+        abs_nested_path = os.path.join(os.path.dirname(__file__), nested_path)
+        if os.path.exists(abs_nested_path):
+            try:
+                spec = importlib.util.spec_from_file_location("objectives", abs_nested_path)
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                return getattr(module, "get_objective_state", None)
+            except Exception as e:
+                print(f"❌ Error loading nested objective checker: {e}")
+
+    # fallback
+    return None
+
 def load_nested_chat_evaluator(topic_id: str, subtopic_id: str):
     try:
         module_path = f"backend/graders/{topic_id}/chat_ai/{subtopic_id}_chat.py"
@@ -196,6 +186,7 @@ async def chat(request: ChatRequest):
     print(f"📝 Chat message: {request.message}")
 
     try:
+        # ---- Prompt Setup ----
         prompts = SUBTOPIC_AI_PROMPTS.get(
             request.subtopic_id or request.topic_id,
             SUBTOPIC_AI_PROMPTS["general"]
@@ -215,7 +206,7 @@ async def chat(request: ChatRequest):
             messages.extend(request.history)
             messages.append({"role": "user", "content": request.message})
 
-        # ---- GPT RESPONSE ----
+        # ---- GPT Response ----
         response = client.chat.completions.create(
             model="gpt-4o",
             messages=messages,
@@ -226,7 +217,7 @@ async def chat(request: ChatRequest):
         reply = response.choices[0].message.content.strip()
         print("🤖 AI Reply:", reply)
 
-        # ---- Evaluate Objectives ----
+        # ---- Evaluate Progress ----
         progress_flags = []
         chat_with_latest = request.history + [
             {"role": "user", "content": request.message},
@@ -235,7 +226,8 @@ async def chat(request: ChatRequest):
 
         get_objective_state = load_objective_checker(
             topic_id=request.topic_id,
-            subtopic_id=request.subtopic_id
+            subtopic_id=request.subtopic_id,
+            nested_subtopic_id=request.nested_subtopic_id
         )
 
         if get_objective_state:
@@ -244,7 +236,7 @@ async def chat(request: ChatRequest):
             print(f"⚠️ No objective checker found for {request.topic_id}/{request.subtopic_id}")
             progress_flags = []
 
-        # ---- Load stored progress to prevent regression ----
+        # ---- Load Stored Progress (to preserve prior wins) ----
         stored_progress = []
         try:
             existing = await progress_collection.find_one({
@@ -258,15 +250,34 @@ async def chat(request: ChatRequest):
         except Exception as e:
             print(f"⚠️ Failed to fetch stored progress: {e}")
 
-        # ---- Merge with existing progress ----
+        # ---- Merge Old and New ----
         if stored_progress and len(stored_progress) == len(progress_flags):
-            progress_flags = [
-                new or old for new, old in zip(progress_flags, stored_progress)
-            ]
+            merged_progress = []
+            for new, old in zip(progress_flags, stored_progress):
+                if old is True:
+                    merged_progress.append(True)
+                elif new is True:
+                    merged_progress.append(True)
+                elif new == "progress" or old == "progress":
+                    merged_progress.append("progress")
+                else:
+                    merged_progress.append(False)
+            progress_flags = merged_progress
         else:
             print(f"⚠️ Flag length mismatch — stored: {len(stored_progress)}, new: {len(progress_flags)}")
 
-        # ---- Ready message ----
+        # ---- AI Score Calculation ----
+        def calculate_ai_score(flags):
+            total = len(flags)
+            earned = sum(1 if f is True else 0.5 if f == "progress" else 0 for f in flags)
+            return round((earned / total) * 100) if total else 0
+
+        ai_score = calculate_ai_score(progress_flags)
+
+        print("📬 Final Progress Flags:", progress_flags)
+        print("📈 Final AI Score:", ai_score)
+
+        # ---- Optional: Completion Message ----
         ready_prompt = None
         if progress_flags and all(p is True for p in progress_flags):
             ready_prompt = (
@@ -275,18 +286,20 @@ async def chat(request: ChatRequest):
                 "I'll be here to help on your next topic!"
             )
 
-        print("📬 Final Progress Flags:", progress_flags)
-
+        # ---- Save to MongoDB ----
         save_payload = SaveProgressRequest(
             student_id=request.student_id,
             topic=request.topic_id,
             subtopic=request.subtopic_id,
             nested_subtopic=request.nested_subtopic_id,
-            ai_score=100 if all(p is True for p in progress_flags) else 0,
+            ai_score=ai_score,
             ai_objective_progress=progress_flags
         )
         await save_progress(save_payload)
 
+        print("🧠 Returning AI progress flags from /chat:", progress_flags)
+
+        # ---- Response ----
         return {
             "reply": reply,
             "progress": progress_flags,
@@ -441,3 +454,23 @@ async def get_user_progress(student_id: str):
 
 from backend import students  # Ensure import
 app.include_router(students.router)
+
+@app.put("/reset-scores/{student_id}/{topic}/{subtopic}/{nested_subtopic}")
+async def reset_scores(student_id: str, topic: str, subtopic: str, nested_subtopic: str):
+    result = await progress_collection.update_one(
+        {
+            "student_id": student_id,
+            "topic": topic,
+            "subtopic": subtopic,
+            "nested_subtopic": nested_subtopic
+        },
+        {
+            "$set": {
+                "ai_score": 0,
+                "quiz_score": 0,
+                "topic_grade": 0
+            }
+        }
+    )
+    return {"message": "Scores reset", "matched": result.matched_count, "modified": result.modified_count}
+

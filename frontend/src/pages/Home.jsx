@@ -9,7 +9,7 @@ import {
 
 const Home = () => {
   const [progressData, setProgressData] = useState([]);
-  const studentId = localStorage.getItem("student_id");
+  const studentId = localStorage.getItem("student_id") || "dan123"; // Fallback for dev
   const [student, setStudent] = useState(null);
 
   useEffect(() => {
@@ -24,8 +24,7 @@ const Home = () => {
       }
     };
     fetchStudent();
-  }, []);
-
+  }, [studentId]);
 
   useEffect(() => {
     const fetchProgress = async () => {
@@ -39,7 +38,7 @@ const Home = () => {
       }
     };
     fetchProgress();
-  }, []);
+  }, [studentId]);
 
   const getStatus = (entry) => {
     const scores = [entry.quiz_score, entry.ai_score, entry.assignment_score];
@@ -48,6 +47,9 @@ const Home = () => {
     if (definedScores.length > 0) return "🔄";
     return "⏳";
   };
+
+  const formatLabel = (str) =>
+    str.replace(/(^|_)(\w)/g, (_, __, char) => ` ${char.toUpperCase()}`).trim();
 
   const nestedSubtopicsBySubtopic = {};
   progressData.forEach(entry => {
@@ -95,25 +97,25 @@ const Home = () => {
 
       <main className="flex-1 w-full px-6 py-8">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-
-          {/* Left Column: Condensed Dashboard */}
           <section className="md:col-span-1 bg-white shadow p-6 rounded-lg h-fit">
-            <h2 className="text-lg font-semibold text-gray-800 mb-4">{student ? `${student.first_name} ${student.last_name}'s Dashboard` : "Dashboard"}</h2>
+            <h2 className="text-lg font-semibold text-gray-800 mb-4">
+              {student ? `${student.first_name} ${student.last_name}'s Dashboard` : "Dashboard"}
+            </h2>
             {Object.entries(nestedSubtopicsBySubtopic).length > 0 ? (
               Object.entries(nestedSubtopicsBySubtopic).map(([key, entries], i) => {
                 const [topic, subtopic] = key.split('/');
                 return (
                   <div key={i} className="mb-4">
-                    <p className="text-sm font-semibold text-gray-700">{topic.replace(/_/g, ' ').replace(/\w/g, l => l.toUpperCase())}</p>
-                    <p className="text-xs font-medium text-gray-500 ml-2 mb-1">{subtopic.replace(/_/g, ' ').replace(/\w/g, l => l.toUpperCase())}:</p>
+                    <p className="text-sm font-semibold text-gray-700">{formatLabel(topic)}</p>
+                    <p className="text-xs font-medium text-gray-500 ml-2 mb-1">{formatLabel(subtopic)}:</p>
                     <div className="flex flex-wrap gap-2 ml-4">
                       {entries.map(entry => (
                         <Link
                           key={entry.nested_subtopic}
-                          to={`/topics/${entry.topic}/subtopics/${entry.subtopic}/${entry.nested_subtopic}`}
+                          to={`/topics/${entry.topic}/${entry.subtopic}/${entry.nested_subtopic}`}
                           className="px-3 py-1 rounded-full text-xs font-semibold border hover:bg-blue-500 hover:text-white transition"
                         >
-                          {entry.nested_subtopic.replace(/_/g, ' ').replace(/\w/g, c => c.toUpperCase())} {getStatus(entry)}
+                          {formatLabel(entry.nested_subtopic)} {getStatus(entry)}
                         </Link>
                       ))}
                     </div>
@@ -125,7 +127,6 @@ const Home = () => {
             )}
           </section>
 
-          {/* Right Column: Topics Grid */}
           <section className="md:col-span-2 bg-white shadow p-6 rounded-lg border border-gray-200">
             <h2 className="text-xl font-semibold text-gray-800 mb-4 text-center">Topics</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
@@ -133,7 +134,7 @@ const Home = () => {
                 <Link
                   key={index}
                   to={`/topics/${topic.id}`}
-                  className="flex items-center justify-center gap-3 bg-white p-4 rounded-lg text-center font-medium                   text-gray-700 shadow border border-gray-300 hover:bg-blue-500 hover:text-white transition-all duration-300"
+                  className="flex items-center justify-center gap-3 bg-white p-4 rounded-lg text-center font-medium text-gray-700 shadow border border-gray-300 hover:bg-blue-500 hover:text-white transition-all duration-300"
                 >
                   {topic.icon} <span>{topic.name}</span>
                 </Link>

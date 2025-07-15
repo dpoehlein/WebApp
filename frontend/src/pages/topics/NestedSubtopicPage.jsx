@@ -1,12 +1,12 @@
-import React, { useMemo, useEffect, useState, Suspense, useRef } from 'react';
+import React, { useMemo, useEffect, useState, Suspense, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import ContentContainer from "../../components/ContentContainer";
 import LearningCopilot from "../../components/LearningCopilot.jsx";
 import Breadcrumb from "../../components/Breadcrumb";
 import Footer from "../../components/Footer";
 import Banner from "../../components/Banner";
-import LearningObjectives from "../../components/LearningObjectives"; // ✅ the UI component
-import learningObjectives from "../../data/ai/learningObjectives";  // ✅ the data
+import LearningObjectives from "../../components/LearningObjectives";
+import learningObjectives from "../../data/ai/learningObjectives";
 
 const walkthroughComponents = {
   binary: React.lazy(() => import('../../components/digital_electronics/number_systems/BinaryDemo')),
@@ -24,23 +24,18 @@ const quizModals = {
   gray_code: React.lazy(() => import('../../components/digital_electronics/number_systems/GraycodeQuizModal.jsx')),
 };
 
-const NestedSubtopicPage = ({ topicId: propTopicId, subtopicId: propSubtopicId, nestedSubtopicId: propNestedSubtopicId }) => {
-  const routeParams = useParams();
-  const topicId = propTopicId || routeParams.topicId;
-  const subtopicId = propSubtopicId || routeParams.subtopicId;
-  const nestedSubtopicId = propNestedSubtopicId || routeParams.nestedSubtopicId;
+const NestedSubtopicPage = () => {
+  const { topicId, subtopicId, nestedSubtopicId } = useParams();
+  console.log("✅ Route Params:", { topicId, subtopicId, nestedSubtopicId });
   const hasLoadedRef = useRef(false);
   const hasFetchedProgressRef = useRef(false);
   const [subtopicData, setSubtopicData] = useState(null);
   const [practiceData, setPracticeData] = useState(null);
   const [videoData, setVideoData] = useState(null);
   const [objectiveProgress, setObjectiveProgress] = useState([]);
-  useEffect(() => {
-    console.log("📘 Updated objectiveProgress in NestedSubtopicPage:", objectiveProgress);
-  }, [objectiveProgress]);
-  
   const [quizScore, setQuizScore] = useState(0);
   const [aiScore, setAIScore] = useState(0);
+  const [topicGrade, setTopicGrade] = useState(0);
   const [isQuizOpen, setIsQuizOpen] = useState(false);
 
   const QuizModal = quizModals[nestedSubtopicId] || null;
@@ -56,16 +51,42 @@ const NestedSubtopicPage = ({ topicId: propTopicId, subtopicId: propSubtopicId, 
       const oldVal = prev[idx];
       const newVal = next[idx];
       if (newVal === true || oldVal === true) return true;
-      if (newVal === 'partial' || oldVal === 'partial') return 'partial';
+      if (newVal === 'progress' || oldVal === 'progress') return 'progress';
       return false;
     });
   };
-  
-  const persistProgress = async (flags, quiz, ai, source = "ai") => {
+
+  const persistProgress = useCallback(async (flags, quiz, ai, source = "ai") => {
     const studentId = localStorage.getItem("student_id");
-    if (!studentId) return;
+
+    if (
+      !studentId ||
+      !topicId || topicId === "undefined" ||
+      !subtopicId || subtopicId === "undefined" ||
+      !nestedSubtopicId || nestedSubtopicId === "undefined"
+    ) {
+      console.warn("⛔ Skipping persistProgress due to missing parameters", {
+        studentId,
+        topicId,
+        subtopicId,
+        nestedSubtopicId,
+      });
+      return;
+    }
+
+    console.log("📤 persistProgress called with:", {
+      studentId,
+      topicId,
+      subtopicId,
+      nestedSubtopicId,
+      source,
+      flags,
+      quiz,
+      ai,
+    });
+
     try {
-      await fetch('http://localhost:8000/save-progress', {
+      await fetch(`${import.meta.env.VITE_BACKEND_URL}/save-progress`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -76,60 +97,49 @@ const NestedSubtopicPage = ({ topicId: propTopicId, subtopicId: propSubtopicId, 
           ai_objective_progress: source === "ai" ? flags : undefined,
           quiz_objective_progress: source === "quiz" ? flags : undefined,
           ai_score: source === "ai" ? ai : undefined,
-          quiz_score: source === "quiz" ? quiz : undefined
-        })
-      });      
+          quiz_score: source === "quiz" ? quiz : undefined,
+        }),
+      });
     } catch (err) {
-      console.error("Failed to auto-persist progress:", err);
+      console.error("❌ Failed to auto-persist progress:", err);
     }
-  };
+  }, [topicId, subtopicId, nestedSubtopicId]);  
 
   useEffect(() => {
-    if (hasFetchedProgressRef.current || !objectives.length) {
-      console.log("⏭ Skipping progress fetch. Already fetched or objectives not ready.");
-      return;
-    }
-
-    console.log("🚀 FETCHING PROGRESS: triggered once only");
+    if (hasFetchedProgressRef.current || !objectives.length) return;
     hasFetchedProgressRef.current = true;
-
     const studentId = localStorage.getItem("student_id");
     if (!studentId) return;
 
+    console.log("🚀 Fetching progress with params:", {
+      student_id: studentId,
+      topic_id: topicId,
+      subtopic_id: subtopicId,
+      nested_subtopic_id: nestedSubtopicId
+    });
+    
     const fetchSavedProgress = async () => {
       try {
-        const res = await fetch(`http://localhost:8000/get-progress?student_id=${studentId}&topic_id=${topicId}&subtopic_id=${subtopicId}&nested_subtopic_id=${nestedSubtopicId}`);
+        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/get-progress?student_id=${studentId}&topic=${topicId}&subtopic=${subtopicId}&nested_subtopic=${nestedSubtopicId}`);
         const data = await res.json();
-
-        const defaultProgress = objectives.map(() => false);
-        const loaded = Array.isArray(data.objective_progress) ? data.objective_progress : defaultProgress;
-
-        setQuizScore(data.quiz_score || 0);
-        setAIScore(data.ai_score || 0);
-        setTopicGrade(data.topic_grade || 0);
-
-        const merged = loaded; // ✅ Trust backend merged flags
-
-        const last = localStorage.getItem("last_saved_progress");
-        const hasChanged = JSON.stringify(merged) !== last;
-
-        if (hasChanged) {
-          setObjectiveProgress(merged);
-          persistProgress(merged, data.quiz_score || 0, data.ai_score || 0, "ai");
-          localStorage.setItem("last_saved_progress", JSON.stringify(merged));
-        } else {
-          setObjectiveProgress(merged); // ✅ still update UI if frontend state was stale
-        }
-
+        const quiz = data.quiz_score ?? 0;
+        const ai = data.ai_score ?? 0;
+        setQuizScore(quiz);
+        setAIScore(ai);
+        setTopicGrade(Math.max(ai, quiz));
+        const merged = Array.isArray(data.objective_progress)
+          ? data.objective_progress
+          : objectives.map(() => false);
+        setObjectiveProgress(merged);
         hasLoadedRef.current = true;
       } catch (err) {
-        console.error("❌ Failed to load saved progress:", err);
+        console.error("❌ Failed to load saved progress from:", import.meta.env.VITE_BACKEND_URL, err);
         setObjectiveProgress(objectives.map(() => false));
-      }
+      }      
     };
 
     fetchSavedProgress();
-  }, [objectives.length]);
+  }, [objectives, topicId, subtopicId, nestedSubtopicId]);
 
   useEffect(() => {
     Promise.all([
@@ -147,30 +157,13 @@ const NestedSubtopicPage = ({ topicId: propTopicId, subtopicId: propSubtopicId, 
       });
   }, [topicId, subtopicId, nestedSubtopicId]);
 
-  useEffect(() => {
-    if (!hasLoadedRef.current) return;
-    const current = JSON.stringify(objectiveProgress);
-    const last = localStorage.getItem("last_saved_progress");
-    if (current !== last) {
-      localStorage.setItem("last_saved_progress", current);
-      const timeout = setTimeout(() => {
-        if (objectiveProgress.length === objectives.length) {
-          persistProgress(objectiveProgress, quizScore, aiScore, "ai");
-        }
-      }, 1000);
-      return () => clearTimeout(timeout);
-    }
-  }, [objectiveProgress, quizScore, aiScore]);
-
   const handleQuizCompletion = ({ score, objectiveKeys, objective_progress }) => {
     setQuizScore(score);
-
-    console.log("📩 handleQuizCompletion:", { score, objectiveKeys, objective_progress });
-
+    setTopicGrade(Math.max(score, aiScore));
     if (objective_progress?.length === objectives.length) {
       setObjectiveProgress(prev => {
         const merged = mergeFlags(prev, objective_progress);
-        persistProgress(merged, score, aiScore, "quiz"); // 🔥 Manual save
+        persistProgress(merged, score, aiScore, "quiz");
         return merged;
       });
     } else if (objectiveKeys) {
@@ -180,17 +173,13 @@ const NestedSubtopicPage = ({ topicId: propTopicId, subtopicId: propSubtopicId, 
           const index = objectives.findIndex(obj => obj.key === key);
           if (index !== -1) updated[index] = true;
         });
-        persistProgress(updated, score, aiScore, "quiz"); // 🔥 Manual save
+        persistProgress(updated, score, aiScore, "quiz");
         return updated;
       });
     } else {
-      persistProgress(objectiveProgress, score, aiScore, "quiz"); // fallback
+      persistProgress(objectiveProgress, score, aiScore, "quiz");
     }
   };
-  
-  const completed = objectiveProgress.filter(p => p === true).length;
-  const total = objectives.length;
-  const [topicGrade, setTopicGrade] = useState(0);
 
   if (!subtopicData) return <div className="p-8 text-gray-600">Loading...</div>;
 
@@ -287,8 +276,15 @@ const NestedSubtopicPage = ({ topicId: propTopicId, subtopicId: propSubtopicId, 
             nestedSubtopicId={nestedSubtopicId}
             objectives={objectives}
             objectiveProgress={objectiveProgress}
-            onProgressUpdate={(progressFlags) => setObjectiveProgress(progressFlags)}
-            onScoreUpdate={(score) => setAIScore(score)}
+            onProgressUpdate={(progressFlags) => {
+              setObjectiveProgress(progressFlags);
+              persistProgress(progressFlags, quizScore, aiScore, "ai");
+            }}
+            onScoreUpdate={(score) => {
+              setAIScore(score);
+              setTopicGrade(Math.max(score, quizScore));
+              persistProgress(objectiveProgress, quizScore, score, "ai");
+            }}
             QuizModal={QuizModal}
           />
         </div>

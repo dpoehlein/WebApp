@@ -8,7 +8,6 @@ import NestedSubtopicPage from './pages/topics/NestedSubtopicPage';
 import AdminLogin from './pages/AdminLogin';
 import AdminPanel from './pages/AdminPanel';
 import Dashboard from './pages/Dashboard';
-import BinaryPage from './pages/topics/digital_electronics/subtopics/number_systems/binary/binary';
 import AssignmentPage from './components/digital_electronics/number_systems/AssignmentPage/AssignmentPage';
 
 function App() {
@@ -17,17 +16,11 @@ function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/topics/:topicId" element={<TopicPage />} />
-
-        <Route
-          element={<BinaryPage />}
-        />
-
+        <Route path="/topics/:topicId/:subtopicId" element={<SubtopicPage />} />
         <Route
           path="/topics/:topicId/:subtopicId/:nestedSubtopicId"
           element={<NestedSubtopicPage />}
         />
-
-        <Route path="/topics/:topicId/:subtopicId" element={<SubtopicPage />} />
 
         {/* ✅ Admin Panel route */}
         <Route path="/admin" element={<AdminPanel />} />
@@ -42,6 +35,7 @@ function App() {
           element={<AssignmentPage />}
         />
 
+        {/* ✅ Catch-all 404 route */}
         <Route
           path="*"
           element={

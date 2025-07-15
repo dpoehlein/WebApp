@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import axios from "axios";
 
 const BinaryQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
   if (!isOpen) return null;
@@ -84,10 +85,9 @@ const BinaryQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
     setAnswers({ ...answers, [index]: value });
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     let score = 0;
 
-    // Initialize counters for each of the 6 binary learning objectives
     const objectiveCounts = {
       0: { correct: 0, total: 0 }, // base-2
       1: { correct: 0, total: 0 }, // decimal ➝ binary
@@ -102,7 +102,6 @@ const BinaryQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
       const correct = q.correctAnswer.trim();
       const isCorrect = answer === correct;
 
-      // Determine objective index
       let objIndex = null;
       if (q.type === "bin_to_dec") objIndex = 2;
       if (q.type === "dec_to_bin") objIndex = 1;
@@ -125,7 +124,6 @@ const BinaryQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
     setSubmitted(true);
     setScore(finalScore);
 
-    // Convert correct/total counts to flags: true / "partial" / false
     const objective_progress = Object.keys(objectiveCounts).map((key) => {
       const { correct, total } = objectiveCounts[key];
       const ratio = total === 0 ? 0 : correct / total;
@@ -134,11 +132,24 @@ const BinaryQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
       return false;
     });
 
+    try {
+      await axios.post("http://localhost:8000/save-progress", {
+        student_id: "dan123",
+        topic: "digital_electronics",
+        subtopic: "number_systems",
+        nested_subtopic: "binary",
+        quiz_score: finalScore,
+        quiz_objective_progress: objective_progress
+      });
+    } catch (err) {
+      console.error("❌ Failed to save quiz progress:", err);
+    }
+
     onQuizComplete({
       score: finalScore,
       objective_progress
     });
-  };  
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">

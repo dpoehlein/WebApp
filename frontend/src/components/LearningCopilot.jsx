@@ -17,8 +17,8 @@ const LearningCopilot = ({
   const [chat, setChat] = useState([]);
   const [loading, setLoading] = useState(false);
   const [objectiveEvidence, setObjectiveEvidence] = useState({});
-  const [aiScore, setAiScore] = useState(null);
-  const [quizScore, setQuizScore] = useState(null);
+  const [aiScore, setAiScore] = useState(0);
+  const [quizScore, setQuizScore] = useState(0);
   const [quizOpen, setQuizOpen] = useState(false);
   const chatContainerRef = useRef(null);
   const [firstPromptSent, setFirstPromptSent] = useState(false);
@@ -34,23 +34,22 @@ const LearningCopilot = ({
 
   useEffect(() => {
     async function fetchSavedProgress() {
-      const studentId = localStorage.getItem("student_id");
       if (!studentId) return;
 
       try {
-        const res = await axios.get("http://localhost:8000/get-progress", {
+        const res = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/get-progress`, {
           params: {
             student_id: studentId,
-            topic_id: topicId,
-            subtopic_id: subtopicId,
-            nested_subtopic_id: nestedSubtopicId,
+            topic: topicId,
+            subtopic: subtopicId,
+            nested_subtopic: nestedSubtopicId,
           },
         });
 
         const { objective_progress = [], ai_score = 0, quiz_score = 0 } = res.data || {};
 
         if (typeof onProgressUpdate === "function")
-          onProgressUpdate(objective_progress);
+          onProgressUpdate([...objective_progress]);
         if (typeof onScoreUpdate === "function")
           onScoreUpdate(ai_score);
 
@@ -61,7 +60,7 @@ const LearningCopilot = ({
         console.error("Failed to load saved progress", error);
         setProgressLoaded(true);
       }
-    };
+    }
 
     fetchSavedProgress();
   }, [topicId, subtopicId, nestedSubtopicId, onProgressUpdate, onScoreUpdate]);
@@ -78,35 +77,50 @@ const LearningCopilot = ({
     return total > 0 ? Math.round((score / total) * 100) : 0;
   };
 
-  const saveAIScoreToBackend = async (score, objective_progress) => {
+  const persistProgress = async (flags, quiz, ai, source = "ai") => {
     const studentId = localStorage.getItem("student_id");
-    if (!studentId || !topicId || !subtopicId || !nestedSubtopicId) return;
+
+    if (
+      !studentId ||
+      !topicId || topicId === "undefined" ||
+      !subtopicId || subtopicId === "undefined" ||
+      !nestedSubtopicId || nestedSubtopicId === "undefined"
+    ) {
+      console.warn("⛔ Skipping persistProgress due to missing parameters", {
+        studentId,
+        topicId,
+        subtopicId,
+        nestedSubtopicId
+      });
+      return;
+    }
+
+    console.log("💾 Persisting progress:", {
+      flags,
+      quiz,
+      ai,
+      source
+    });
 
     try {
-      const response = await fetch("http://localhost:8000/save-progress", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      await fetch(`${import.meta.env.VITE_BACKEND_URL}/save-progress`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           student_id: studentId,
           topic: topicId,
           subtopic: subtopicId,
           nested_subtopic: nestedSubtopicId,
-          quiz_score: quizScore || 0,
-          ai_score: score,
-          assignment_score: 0,
-          activity_id: "de_ns_bin_001",
-          objective_progress: objective_progress || [],
+          ai_objective_progress: source === "ai" ? flags : undefined,
+          quiz_objective_progress: source === "quiz" ? flags : undefined,
+          ai_score: source === "ai" ? ai : undefined,
+          quiz_score: source === "quiz" ? quiz : undefined,
         }),
       });
-
-      if (!response.ok) {
-        const err = await response.text();
-        console.error("❌ Save failed:", response.status, err);
-      }
     } catch (err) {
-      console.error("❌ Error saving AI score:", err);
+      console.error("❌ Failed to persist progress:", err);
     }
-  };
+  };  
 
   const sendMessage = async (customMessage = null) => {
     if (!progressLoaded) return;
@@ -132,7 +146,7 @@ const LearningCopilot = ({
         return;
       }
 
-      const res = await axios.post('http://localhost:8000/chat', {
+      const res = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/chat`, {
         student_id: studentId,
         message: messageToSend,
         topic_id: topicId,
@@ -152,15 +166,11 @@ const LearningCopilot = ({
       if (Array.isArray(progressFlags)) {
         const newScore = calculateGrade(progressFlags);
 
-        console.log("📊 New AI Score calculated:", newScore);
-
         const updatedEvidence = { ...objectiveEvidence };
         progressFlags.forEach((flag, i) => {
           if (flag === true) updatedEvidence[i] = (updatedEvidence[i] || 0) + 1;
         });
         setObjectiveEvidence(updatedEvidence);
-
-        console.log("🧠 Updated objectiveEvidence counts:", updatedEvidence);
 
         const newProgress = progressFlags.map((flag, i) => {
           const current = objectiveProgress[i];
@@ -170,26 +180,13 @@ const LearningCopilot = ({
           return false;
         });
 
-        console.log("🚦 New merged progress flags:", newProgress);
+        const finalAIScore = Math.max(aiScore ?? 0, newScore);
 
         if (typeof onProgressUpdate === 'function') onProgressUpdate(newProgress);
+        if (typeof onScoreUpdate === 'function') onScoreUpdate(finalAIScore);
 
-        console.log("💾 Saving AI score and progress to backend:", {
-          studentId,
-          topicId,
-          subtopicId,
-          nestedSubtopicId,
-          newScore,
-          objectiveProgress: newProgress,
-        });
-        
-        saveAIScoreToBackend(newScore, newProgress);
-
-        setAiScore(prev => {
-          const final = Math.max(prev ?? 0, newScore);
-          if (typeof onScoreUpdate === 'function') onScoreUpdate(final);
-          return final;
-        });
+        setAiScore(finalAIScore);
+        persistProgress(newProgress, quizScore || 0, finalAIScore, "ai");
 
         if (progressFlags.length > 0 && progressFlags.every(p => p === true) && !completionMessageSent) {
           setChat(prev => [...prev, {
@@ -218,14 +215,11 @@ const LearningCopilot = ({
 
   return (
     <div className="relative bg-gray-50 rounded shadow">
-
-      {/* Header */}
       <div className="bg-gray-200 px-4 py-3 shadow-sm text-sm text-gray-800 w-full">
         <p>🎓 Welcome! I'm here to help you learn <strong>{formattedTitle}</strong>.</p>
         <p>Ask anything or take the quiz when ready!</p>
       </div>
 
-      {/* Chat Area — no internal scroll */}
       <div className="px-4 py-4 space-y-2">
         {chat.map((msg, idx) => (
           <div key={idx} className={`text-sm ${msg.role === 'user' ? 'text-right' : 'text-left'}`}>
@@ -237,7 +231,6 @@ const LearningCopilot = ({
         {loading && <div className="text-center text-gray-500">Thinking…</div>}
       </div>
 
-      {/* Fixed Input Bar at Bottom of Viewport */}
       <div className="fixed bottom-0 right-0 w-1/2 bg-white border-t p-4 flex gap-2 z-50">
         <input
           type="text"
@@ -257,7 +250,6 @@ const LearningCopilot = ({
         </button>
       </div>
 
-      {/* Quiz Modal */}
       {QuizModal && (
         <QuizModal
           isOpen={quizOpen}
@@ -266,7 +258,7 @@ const LearningCopilot = ({
         />
       )}
     </div>
-  );  
+  );
 };
 
 export default LearningCopilot;
