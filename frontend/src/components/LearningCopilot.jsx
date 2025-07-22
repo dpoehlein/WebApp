@@ -13,6 +13,10 @@ const LearningCopilot = ({
   onScoreUpdate,
   QuizModal
 }) => {
+  const studentId = localStorage.getItem("student_id");
+
+  console.log("🐞 LearningCopilot props:", { topicId, subtopicId, nestedSubtopicId, studentId })
+
   const [input, setInput] = useState('');
   const [chat, setChat] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -24,9 +28,9 @@ const LearningCopilot = ({
   const [firstPromptSent, setFirstPromptSent] = useState(false);
   const [completionMessageSent, setCompletionMessageSent] = useState(false);
   const [progressLoaded, setProgressLoaded] = useState(false);
-  const studentId = localStorage.getItem("student_id");
+  
 
-  const formattedTitle = nestedSubtopicId.replace(/_/g, ' ').replace(/\w/g, c => c.toUpperCase());
+  const formattedTitle = nestedSubtopicId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   const welcomeMessageFn = welcomeMessages[nestedSubtopicId];
   const welcomeMessage = welcomeMessageFn
     ? (typeof welcomeMessageFn === 'function' ? welcomeMessageFn(formattedTitle) : welcomeMessageFn)
@@ -34,7 +38,17 @@ const LearningCopilot = ({
 
   useEffect(() => {
     async function fetchSavedProgress() {
-      if (!studentId) return;
+      if (
+        !studentId ||
+        !topicId || topicId === "undefined" ||
+        !subtopicId || subtopicId === "undefined" ||
+        !nestedSubtopicId || nestedSubtopicId === "undefined"
+      ) {
+        console.warn("⛔ Skipping fetchSavedProgress due to invalid params", {
+          studentId, topicId, subtopicId, nestedSubtopicId
+        });
+        return;
+      }
 
       try {
         const res = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/get-progress`, {
@@ -78,6 +92,8 @@ const LearningCopilot = ({
   };
 
   const persistProgress = async (flags, quiz, ai, source = "ai") => {
+    console.log("🚀 persistProgress called", { flags, quiz, ai, source });
+    
     const studentId = localStorage.getItem("student_id");
 
     if (
@@ -95,32 +111,39 @@ const LearningCopilot = ({
       return;
     }
 
-    console.log("💾 Persisting progress:", {
-      flags,
-      quiz,
-      ai,
-      source
-    });
+    const backendUrl = import.meta.env.VITE_BACKEND_URL;
+    console.log("🌍 Backend URL:", backendUrl); 
+
+    const payload = {
+      student_id: studentId,
+      topic: topicId,
+      subtopic: subtopicId,
+      nested_subtopic: nestedSubtopicId,
+      ai_objective_progress: source === "ai" ? flags : undefined,
+      quiz_objective_progress: source === "quiz" ? flags : undefined,
+      ai_score: source === "ai" ? ai : undefined,
+      quiz_score: source === "quiz" ? quiz : undefined,
+    };
+
+    console.log("🌐 POSTing to:", `${backendUrl}/save-progress`);
+    console.log("📦 Payload:", payload);
 
     try {
-      await fetch(`${import.meta.env.VITE_BACKEND_URL}/save-progress`, {
+      const response = await fetch(`${backendUrl}/save-progress`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          student_id: studentId,
-          topic: topicId,
-          subtopic: subtopicId,
-          nested_subtopic: nestedSubtopicId,
-          ai_objective_progress: source === "ai" ? flags : undefined,
-          quiz_objective_progress: source === "quiz" ? flags : undefined,
-          ai_score: source === "ai" ? ai : undefined,
-          quiz_score: source === "quiz" ? quiz : undefined,
-        }),
+        body: JSON.stringify(payload),
       });
+
+      if (!response.ok) {
+        console.error(`❌ Save progress failed: ${response.status} ${response.statusText}`);
+      } else {
+        console.log("✅ Progress saved successfully.");
+      }
     } catch (err) {
-      console.error("❌ Failed to persist progress:", err);
+      console.error("🚨 Error saving progress:", err);
     }
-  };  
+  };
 
   const sendMessage = async (customMessage = null) => {
     if (!progressLoaded) return;
@@ -220,7 +243,7 @@ const LearningCopilot = ({
         <p>Ask anything or take the quiz when ready!</p>
       </div>
 
-      <div className="px-4 py-4 space-y-2">
+      <div className="px-4 py-4 space-y-2" ref={chatContainerRef}>
         {chat.map((msg, idx) => (
           <div key={idx} className={`text-sm ${msg.role === 'user' ? 'text-right' : 'text-left'}`}>
             <div className={`inline-block px-3 py-2 rounded max-w-full ${msg.role === 'user' ? 'bg-blue-200' : 'bg-gray-200'}`}>
