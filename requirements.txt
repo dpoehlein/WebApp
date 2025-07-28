@@ -8,8 +8,6 @@ pymongo==4.5.0  # ✅ Required for Motor
 
 # Pydantic for data validation and email
 pydantic[email]==2.6.3
-pydantic-core==2.16.3
-email-validator==2.2.0  # ✅ Required by pydantic[email]
 
 # OpenAI API
 openai==1.91.0  # ✅ Updated for compatibility with current client usage

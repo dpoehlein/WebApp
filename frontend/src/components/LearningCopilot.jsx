@@ -15,8 +15,6 @@ const LearningCopilot = ({
 }) => {
   const studentId = localStorage.getItem("student_id");
 
-  console.log("🐞 LearningCopilot props:", { topicId, subtopicId, nestedSubtopicId, studentId })
-
   const [input, setInput] = useState('');
   const [chat, setChat] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -25,10 +23,11 @@ const LearningCopilot = ({
   const [quizScore, setQuizScore] = useState(0);
   const [quizOpen, setQuizOpen] = useState(false);
   const chatContainerRef = useRef(null);
+  const lastSaveRef = useRef({});
   const [firstPromptSent, setFirstPromptSent] = useState(false);
   const [completionMessageSent, setCompletionMessageSent] = useState(false);
   const [progressLoaded, setProgressLoaded] = useState(false);
-  
+  const [mergedProgress, setMergedProgress] = useState([]);
 
   const formattedTitle = nestedSubtopicId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   const welcomeMessageFn = welcomeMessages[nestedSubtopicId];
@@ -38,37 +37,26 @@ const LearningCopilot = ({
 
   useEffect(() => {
     async function fetchSavedProgress() {
-      if (
-        !studentId ||
-        !topicId || topicId === "undefined" ||
-        !subtopicId || subtopicId === "undefined" ||
-        !nestedSubtopicId || nestedSubtopicId === "undefined"
-      ) {
-        console.warn("⛔ Skipping fetchSavedProgress due to invalid params", {
-          studentId, topicId, subtopicId, nestedSubtopicId
-        });
-        return;
-      }
+      if (!studentId || !topicId || !subtopicId || !nestedSubtopicId) return;
 
       try {
         const res = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/get-progress`, {
           params: {
             student_id: studentId,
-            topic: topicId,
-            subtopic: subtopicId,
-            nested_subtopic: nestedSubtopicId,
+            topic_id: topicId,
+            subtopic_id: subtopicId,
+            nested_subtopic_id: nestedSubtopicId,
           },
         });
 
         const { objective_progress = [], ai_score = 0, quiz_score = 0 } = res.data || {};
 
-        if (typeof onProgressUpdate === "function")
-          onProgressUpdate([...objective_progress]);
-        if (typeof onScoreUpdate === "function")
-          onScoreUpdate(ai_score);
+        if (typeof onProgressUpdate === "function") onProgressUpdate([...objective_progress]);
+        if (typeof onScoreUpdate === "function") onScoreUpdate(ai_score);
 
         setAiScore(ai_score);
         setQuizScore(quiz_score);
+        setMergedProgress([...objective_progress]);
         setProgressLoaded(true);
       } catch (error) {
         console.error("Failed to load saved progress", error);
@@ -92,56 +80,25 @@ const LearningCopilot = ({
   };
 
   const persistProgress = async (flags, quiz, ai, source = "ai") => {
-    console.log("🚀 persistProgress called", { flags, quiz, ai, source });
-    
-    const studentId = localStorage.getItem("student_id");
-
-    if (
-      !studentId ||
-      !topicId || topicId === "undefined" ||
-      !subtopicId || subtopicId === "undefined" ||
-      !nestedSubtopicId || nestedSubtopicId === "undefined"
-    ) {
-      console.warn("⛔ Skipping persistProgress due to missing parameters", {
-        studentId,
-        topicId,
-        subtopicId,
-        nestedSubtopicId
-      });
-      return;
-    }
-
-    const backendUrl = import.meta.env.VITE_BACKEND_URL;
-    console.log("🌍 Backend URL:", backendUrl); 
-
     const payload = {
       student_id: studentId,
-      topic: topicId,
-      subtopic: subtopicId,
-      nested_subtopic: nestedSubtopicId,
+      topic_id: topicId,
+      subtopic_id: subtopicId,
+      nested_subtopic_id: nestedSubtopicId,
       ai_objective_progress: source === "ai" ? flags : undefined,
       quiz_objective_progress: source === "quiz" ? flags : undefined,
       ai_score: source === "ai" ? ai : undefined,
       quiz_score: source === "quiz" ? quiz : undefined,
     };
 
-    console.log("🌐 POSTing to:", `${backendUrl}/save-progress`);
-    console.log("📦 Payload:", payload);
-
     try {
-      const response = await fetch(`${backendUrl}/save-progress`, {
+      await fetch(`${import.meta.env.VITE_BACKEND_URL}/save-progress`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-
-      if (!response.ok) {
-        console.error(`❌ Save progress failed: ${response.status} ${response.statusText}`);
-      } else {
-        console.log("✅ Progress saved successfully.");
-      }
     } catch (err) {
-      console.error("🚨 Error saving progress:", err);
+      console.error("Error saving progress:", err);
     }
   };
 
@@ -161,8 +118,18 @@ const LearningCopilot = ({
     try {
       let reply = '';
 
-      if (!firstPromptSent && /(quiz|help|practice)/.test(messageToSend.toLowerCase())) {
-        reply = "Let's begin with the basics: What is the difference between the decimal and binary number systems?";
+      if (!firstPromptSent) {
+        const unmastered = objectives
+          .map((obj, i) => ({ text: obj, status: mergedProgress[i], index: i }))
+          .filter(item => item.status !== true);
+
+        if (unmastered.length > 0) {
+          const firstGap = unmastered[0];
+          reply = `Let's strengthen your understanding of this: **${firstGap.text}**. Can you explain it or would you like a practice problem?`;
+        } else {
+          reply = `✅ You've completed all objectives. Want to review or retake the quiz for a higher score?`;
+        }
+
         setChat(prev => [...prev, { role: 'assistant', content: reply }]);
         setFirstPromptSent(true);
         setLoading(false);
@@ -182,8 +149,6 @@ const LearningCopilot = ({
       reply = res.data.reply;
       const progressFlags = res.data.progress || [];
 
-      console.log("🎯 Progress flags received from backend:", progressFlags);
-
       setChat(prev => [...prev, { role: 'assistant', content: reply }]);
 
       if (Array.isArray(progressFlags)) {
@@ -197,21 +162,30 @@ const LearningCopilot = ({
 
         const newProgress = progressFlags.map((flag, i) => {
           const current = objectiveProgress[i];
-          if (current === true) return true;
-          if (flag === true) return true;
+          if (current === true || flag === true) return true;
           if (flag === 'progress' || current === 'progress') return 'progress';
           return false;
         });
 
-        const finalAIScore = Math.max(aiScore ?? 0, newScore);
+        const progressChanged = JSON.stringify(newProgress) !== JSON.stringify(objectiveProgress);
+        const scoreImproved = newScore > aiScore;
 
-        if (typeof onProgressUpdate === 'function') onProgressUpdate(newProgress);
-        if (typeof onScoreUpdate === 'function') onScoreUpdate(finalAIScore);
+        if (progressChanged || scoreImproved) {
+          const finalAIScore = Math.max(aiScore ?? 0, newScore);
 
-        setAiScore(finalAIScore);
-        persistProgress(newProgress, quizScore || 0, finalAIScore, "ai");
+          if (typeof onProgressUpdate === 'function') onProgressUpdate(newProgress);
+          if (typeof onScoreUpdate === 'function') onScoreUpdate(finalAIScore);
+          setAiScore(finalAIScore);
 
-        if (progressFlags.length > 0 && progressFlags.every(p => p === true) && !completionMessageSent) {
+          persistProgress(newProgress, quizScore || 0, finalAIScore, "ai");
+
+          lastSaveRef.current = {
+            flags: JSON.stringify(newProgress),
+            score: finalAIScore,
+          };
+        }
+
+        if (progressFlags.length === objectives.length && progressFlags.every(p => p === true) && !completionMessageSent) {
           setChat(prev => [...prev, {
             role: 'assistant',
             content: "✅ Awesome work! You’ve completed all objectives. Try the quiz or explore another topic!"
@@ -220,7 +194,7 @@ const LearningCopilot = ({
         }
       }
     } catch (err) {
-      console.error("💥 Chat error:", err);
+      console.error("Chat error:", err);
       setChat(prev => [...prev, {
         role: 'assistant',
         content: "⚠️ Sorry, something went wrong."
@@ -237,42 +211,54 @@ const LearningCopilot = ({
   };
 
   return (
-    <div className="relative bg-gray-50 rounded shadow">
+    <div className="flex flex-col h-full bg-gray-50 rounded shadow">
+
+      {/* Welcome message */}
       <div className="bg-gray-200 px-4 py-3 shadow-sm text-sm text-gray-800 w-full">
-        <p>🎓 Welcome! I'm here to help you learn <strong>{formattedTitle}</strong>.</p>
-        <p>Ask anything or take the quiz when ready!</p>
+        <ReactMarkdown>{welcomeMessage}</ReactMarkdown>
       </div>
 
-      <div className="px-4 py-4 space-y-2" ref={chatContainerRef}>
-        {chat.map((msg, idx) => (
-          <div key={idx} className={`text-sm ${msg.role === 'user' ? 'text-right' : 'text-left'}`}>
-            <div className={`inline-block px-3 py-2 rounded max-w-full ${msg.role === 'user' ? 'bg-blue-200' : 'bg-gray-200'}`}>
-              <ReactMarkdown>{msg.content}</ReactMarkdown>
-            </div>
-          </div>
-        ))}
-        {loading && <div className="text-center text-gray-500">Thinking…</div>}
-      </div>
+      {/* Chat + Input in fixed layout */}
+      <div className="flex flex-col flex-1 overflow-hidden">
 
-      <div className="fixed bottom-0 right-0 w-1/2 bg-white border-t p-4 flex gap-2 z-50">
-        <input
-          type="text"
-          className="flex-grow p-2 border rounded"
-          placeholder="Ask a question..."
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-          disabled={loading}
-        />
-        <button
-          onClick={() => sendMessage()}
-          className="bg-blue-500 text-white px-4 py-2 rounded"
-          disabled={loading}
+        {/* Scrollable Chat Area */}
+        <div
+          className="flex-1 px-4 py-4 space-y-2 overflow-y-auto"
+          ref={chatContainerRef}
         >
-          Send
-        </button>
+          {chat.map((msg, idx) => (
+            <div key={idx} className={`text-sm ${msg.role === 'user' ? 'text-right' : 'text-left'}`}>
+              <div className={`inline-block px-3 py-2 rounded max-w-full ${msg.role === 'user' ? 'bg-blue-200' : 'bg-gray-200'}`}>
+                <ReactMarkdown>{msg.content}</ReactMarkdown>
+              </div>
+            </div>
+          ))}
+          {loading && <div className="text-center text-gray-500">Thinking…</div>}
+        </div>
+
+        {/* Input Bar */}
+        <div className="border-t p-4 flex gap-2 bg-white shrink-0">
+          <input
+            type="text"
+            className="flex-grow p-2 border rounded"
+            placeholder="Ask a question..."
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
+            disabled={loading}
+          />
+          <button
+            onClick={() => sendMessage()}
+            className="bg-blue-500 text-white px-4 py-2 rounded"
+            disabled={loading}
+          >
+            Send
+          </button>
+        </div>
+
       </div>
 
+      {/* Quiz Modal */}
       {QuizModal && (
         <QuizModal
           isOpen={quizOpen}

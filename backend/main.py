@@ -5,6 +5,7 @@ import traceback
 import importlib.util
 from datetime import datetime
 from typing import List, Optional, Union
+from pathlib import Path
 
 # ───── Third-Party Libraries ─────
 from fastapi import APIRouter, FastAPI, HTTPException, UploadFile, File, Request, Query, Body 
@@ -13,54 +14,69 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from openai import OpenAI
-from backend.objective_loader import load_objective_checker
 
-# ───── Internal Modules ─────
-from backend.database import students_collection, progress_collection, assignment_grades_collection
-from backend.models import Student, Progress
+# ───── Internal Modules (relative to backend/) ─────
+from objective_loader import load_objective_checker
+from database import students_collection, progress_collection, assignment_grades_collection
+from models import Student, Progress
+import students
 
-load_dotenv()
+# ───── Load Environment Variables ─────
+env_path = Path(__file__).resolve().parent / ".env"
+if not env_path.exists():
+    print(f"⚠️ .env file not found at {env_path}")
+load_dotenv(dotenv_path=env_path)
 
+# ───── OpenAI Client Setup ─────
 api_key = os.getenv("OPENAI_API_KEY")
 if api_key:
     print("✅ Loaded OpenAI Key:", api_key[:10] + "...")
+    client = OpenAI(api_key=api_key)
 else:
-    print("❌ OPENAI_API_KEY not found!")
+    print("❌ OPENAI_API_KEY not found in .env")
+    client = None  # You might want to handle this in chat route
 
-client = OpenAI(api_key=api_key, http_client=None)
+# ───── Load AI Prompt File ─────
+SUBTOPIC_AI_PROMPTS = {}
+try:
+    file_path = os.path.join(os.path.dirname(__file__), "data", "ai_prompts.json")
+    with open(file_path, "r", encoding="utf-8") as f:
+        SUBTOPIC_AI_PROMPTS = json.load(f)
+    print("✅ Loaded ai_prompts.json")
+except Exception as e:
+    print(f"❌ Failed to load ai_prompts.json: {e}")
 
-file_path = os.path.join(os.path.dirname(__file__), "data", "ai_prompts.json")
-with open(file_path, "r", encoding="utf-8") as f:
-    SUBTOPIC_AI_PROMPTS = json.load(f)
-
-app = FastAPI()
+# ───── FastAPI App Setup ─────
+app = FastAPI(default_response_class=JSONResponse)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["http://localhost:5173"],  # Frontend dev server
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# ───── Root Route for Health Check ─────
 @app.get("/")
 async def root():
     return {"status": "ok", "message": "FastAPI backend is running"}
 
+# ───── Pydantic Model for Chat Endpoint ─────
 class ChatRequest(BaseModel):
     student_id: str
     message: str
     topic_id: str = "general"
     subtopic_id: Optional[str] = None
     nested_subtopic_id: Optional[str] = None
-    history: list[dict] = []
+    history: List[dict] = []
     objectives: Optional[List[str]] = []
 
 @app.get("/students")
 async def get_students():
     students = []
     async for doc in students_collection.find():
-        doc["_id"] = str(doc["_id"])  # Convert ObjectId to string for JSON
+        doc["_id"] = str(doc["_id"])
         students.append(doc)
     return students
 
@@ -82,48 +98,51 @@ async def get_progress(student_id: str):
     return progress
 
 @app.get("/get-progress")
-async def get_nested_progress(
-    student_id: str = Query(...),
-    topic_id: str = Query(...),
-    subtopic_id: str = Query(...),
-    nested_subtopic_id: str = Query(...)
+async def get_progress(
+    student_id: str,
+    topic_id: str,
+    subtopic_id: str,
+    nested_subtopic_id: str,
 ):
-    query = {
+    print("🟦 GET /get-progress query:", {
         "student_id": student_id,
-        "topic": topic_id,
-        "subtopic": subtopic_id,
-        "nested_subtopic": nested_subtopic_id
-    }
-    print(f"🟦 GET /get-progress query: {query}")
+        "topic_id": topic_id,
+        "subtopic_id": subtopic_id,
+        "nested_subtopic_id": nested_subtopic_id
+    })
 
-    progress = await progress_collection.find_one(query)
+    progress = await progress_collection.find_one({
+        "student_id": student_id,
+        "topic_id": topic_id,
+        "subtopic_id": subtopic_id,
+        "nested_subtopic_id": nested_subtopic_id
+    })
+
     if not progress:
         print("🔴 No progress found.")
         raise HTTPException(status_code=404, detail="Progress not found")
 
-    quiz_score = progress.get("quiz_score", 0)
-    ai_score = progress.get("ai_score", 0)
-    assignment_score = progress.get("assignment_score", 0)
-    topic_grade = max(quiz_score, ai_score)
+    def merge_objective_progress(ai_flags, quiz_flags):
+        max_len = max(len(ai_flags), len(quiz_flags))
+        ai_flags += [False] * (max_len - len(ai_flags))
+        quiz_flags += [False] * (max_len - len(quiz_flags))
+        return [a or q for a, q in zip(ai_flags, quiz_flags)]
 
-    # ✅ USE the saved merged flags
-    merged_flags = progress.get("objective_progress", [])
+    merged_flags = merge_objective_progress(
+        progress.get("ai_objective_progress", []),
+        progress.get("quiz_objective_progress", [])
+    )
 
-    print(f"✅ Merged Objective Progress: {merged_flags}")
-    print(f"🏁 Topic Grade: {topic_grade}")
+    topic_grade = max(progress.get("quiz_score", 0), progress.get("ai_score", 0))
+    print("✅ Merged Objective Progress:", merged_flags)
+    print("🏁 Topic Grade:", topic_grade)
 
     return {
-        "student_id": progress.get("student_id"),
-        "topic": progress.get("topic"),
-        "subtopic": progress.get("subtopic"),
-        "nested_subtopic": progress.get("nested_subtopic"),
-        "quiz_score": quiz_score,
-        "ai_score": ai_score,
-        "assignment_score": assignment_score,
-        "activity_id": progress.get("activity_id"),
         "objective_progress": merged_flags,
+        "quiz_score": progress.get("quiz_score", 0),
+        "ai_score": progress.get("ai_score", 0),
+        "assignment_score": progress.get("assignment_score", 0),
         "topic_grade": topic_grade,
-        "updated_at": progress.get("updated_at", datetime.utcnow())
     }
 
 @app.post("/progress/")
@@ -241,9 +260,9 @@ async def chat(request: ChatRequest):
         try:
             existing = await progress_collection.find_one({
                 "student_id": request.student_id,
-                "topic": request.topic_id,
-                "subtopic": request.subtopic_id,
-                "nested_subtopic": request.nested_subtopic_id
+                "topic_id": request.topic_id,
+                "subtopic_id": request.subtopic_id,
+                "nested_subtopic_id": request.nested_subtopic_id
             })
             if existing:
                 stored_progress = existing.get("objective_progress", [])
@@ -289,9 +308,9 @@ async def chat(request: ChatRequest):
         # ---- Save to MongoDB ----
         save_payload = SaveProgressRequest(
             student_id=request.student_id,
-            topic=request.topic_id,
-            subtopic=request.subtopic_id,
-            nested_subtopic=request.nested_subtopic_id,
+            topic_id=request.topic_id,
+            subtopic_id=request.subtopic_id,
+            nested_subtopic_id=request.nested_subtopic_id,
             ai_score=ai_score,
             ai_objective_progress=progress_flags
         )
@@ -373,9 +392,9 @@ async def dynamic_grader(
 
 class ScoreUpdate(BaseModel):
     student_id: str
-    topic: str
-    subtopic: str
-    nested_subtopic: str
+    topic_id: str
+    subtopic_id: str
+    nested_subtopic_id: str
     quiz_score: int = 0
     ai_score: int = 0
     assignment_score: int = 0
@@ -384,54 +403,59 @@ class ScoreUpdate(BaseModel):
 
 class SaveProgressRequest(BaseModel):
     student_id: str
-    topic: str
-    subtopic: str
-    nested_subtopic: str
+    topic_id: str
+    subtopic_id: str
+    nested_subtopic_id: str
     quiz_score: Optional[int] = None
     ai_score: Optional[int] = None
-    quiz_objective_progress: Optional[List[bool]] = None
-    ai_objective_progress: Optional[List[bool]] = None
+    assignment_score: Optional[int] = 0
+    activity_id: Optional[str] = None
+    quiz_objective_progress: Optional[List[Union[bool, str]]] = []
+    ai_objective_progress: Optional[List[Union[bool, str]]] = []
 
 @app.post("/save-progress")
 async def save_progress(payload: SaveProgressRequest):
     query = {
         "student_id": payload.student_id,
-        "topic": payload.topic,
-        "subtopic": payload.subtopic,
-        "nested_subtopic": payload.nested_subtopic,
+        "topic_id": payload.topic_id,
+        "subtopic_id": payload.subtopic_id,
+        "nested_subtopic_id": payload.nested_subtopic_id,
     }
 
-    # Fetch existing progress record
+    # Fetch existing progress record (if any)
     existing = await progress_collection.find_one(query)
 
-    # Fallbacks
+    # Extract existing values or use defaults
     existing_ai = existing.get("ai_objective_progress", []) if existing else []
     existing_quiz = existing.get("quiz_objective_progress", []) if existing else []
 
-    # Update each field
+    # Use payload values if provided, otherwise fall back to existing
     new_ai = payload.ai_objective_progress or existing_ai
     new_quiz = payload.quiz_objective_progress or existing_quiz
 
-    # Merge objective progress flags
+    # Ensure both lists are the same length
     max_len = max(len(new_ai), len(new_quiz))
     padded_ai = new_ai + [False] * (max_len - len(new_ai))
     padded_quiz = new_quiz + [False] * (max_len - len(new_quiz))
     merged_flags = [a or q for a, q in zip(padded_ai, padded_quiz)]
 
-    # Merge scores
+    # Scores (fallbacks if None or not in payload)
     quiz_score = payload.quiz_score if payload.quiz_score is not None else (existing.get("quiz_score", 0) if existing else 0)
     ai_score = payload.ai_score if payload.ai_score is not None else (existing.get("ai_score", 0) if existing else 0)
+    assignment_score = payload.assignment_score if payload.assignment_score is not None else (existing.get("assignment_score", 0) if existing else 0)
     topic_grade = max(quiz_score, ai_score)
 
     update_doc = {
         "$set": {
             "student_id": payload.student_id,
-            "topic": payload.topic,
-            "subtopic": payload.subtopic,
-            "nested_subtopic": payload.nested_subtopic,
+            "topic_id": payload.topic_id,
+            "subtopic_id": payload.subtopic_id,
+            "nested_subtopic_id": payload.nested_subtopic_id,
             "quiz_score": quiz_score,
             "ai_score": ai_score,
+            "assignment_score": assignment_score,
             "topic_grade": topic_grade,
+            "activity_id": payload.activity_id if payload.activity_id is not None else (existing.get("activity_id") if existing else None),
             "quiz_objective_progress": new_quiz,
             "ai_objective_progress": new_ai,
             "objective_progress": merged_flags,
@@ -441,7 +465,11 @@ async def save_progress(payload: SaveProgressRequest):
 
     await progress_collection.update_one(query, update_doc, upsert=True)
 
-    return JSONResponse(content={"message": "Progress saved successfully."})
+    return JSONResponse(content={
+        "message": "Progress saved successfully.",
+        "topic_grade": topic_grade,
+        "objective_progress": merged_flags
+    })
 
 @app.get("/progress-all/{student_id}")
 async def get_user_progress(student_id: str):
@@ -452,17 +480,17 @@ async def get_user_progress(student_id: str):
         results.append(doc)
     return results
 
-from backend import students  # Ensure import
+import students  # Ensure import
 app.include_router(students.router)
 
-@app.put("/reset-scores/{student_id}/{topic}/{subtopic}/{nested_subtopic}")
-async def reset_scores(student_id: str, topic: str, subtopic: str, nested_subtopic: str):
+@app.put("/reset-scores/{student_id}/{topic_id}/{subtopic_id}/{nested_subtopic_id}")
+async def reset_scores(student_id: str, topic_id: str, subtopic_id: str, nested_subtopic_id: str):
     result = await progress_collection.update_one(
         {
             "student_id": student_id,
-            "topic": topic,
-            "subtopic": subtopic,
-            "nested_subtopic": nested_subtopic
+            "topic_id": topic_id,
+            "subtopic_id": subtopic_id,
+            "nested_subtopic_id": nested_subtopic_id
         },
         {
             "$set": {

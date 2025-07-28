@@ -1,45 +1,46 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+
+// Main pages
 import Home from './pages/Home';
+import Dashboard from './pages/Dashboard';
+
+// Topic structure
 import TopicPage from './pages/topics/TopicPage';
 import SubtopicPage from './pages/topics/SubtopicPage';
 import NestedSubtopicPage from './pages/topics/NestedSubtopicPage';
 
-// ✅ Custom routes
+// Admin
 import AdminLogin from './pages/AdminLogin';
 import AdminPanel from './pages/AdminPanel';
-import Dashboard from './pages/Dashboard';
+
+// Assignments (hardcoded path for number_systems)
 import AssignmentPage from './components/digital_electronics/number_systems/AssignmentPage/AssignmentPage';
 
 function App() {
   return (
     <Router basename="/">
       <Routes>
+        {/* ✅ Core Pages */}
         <Route path="/" element={<Home />} />
-        <Route path="/topics/:topicId" element={<TopicPage />} />
-        <Route path="/topics/:topicId/:subtopicId" element={<SubtopicPage />} />
-        <Route
-          path="/topics/:topicId/:subtopicId/:nestedSubtopicId"
-          element={<NestedSubtopicPage />}
-        />
-
-        {/* ✅ Admin Panel route */}
-        <Route path="/admin" element={<AdminPanel />} />
-
-        {/* ✅ Dashboard route */}
-        <Route path="/admin-login" element={<AdminLogin />} />
         <Route path="/dashboard" element={<Dashboard />} />
 
-        {/* ✅ New assignment route */}
-        <Route
-          path="/assignments/number_systems"
-          element={<AssignmentPage />}
-        />
+        {/* ✅ Topic and Subtopic Routing */}
+        <Route path="/topics/:topicId" element={<TopicPage />} />
+        <Route path="/topics/:topicId/:subtopicId" element={<SubtopicPage />} />
+        <Route path="/topics/:topicId/:subtopicId/:nestedSubtopicId" element={<NestedSubtopicPage />} />
 
-        {/* ✅ Catch-all 404 route */}
+        {/* ✅ Admin Routes */}
+        <Route path="/admin-login" element={<AdminLogin />} />
+        <Route path="/admin" element={<AdminPanel />} />
+
+        {/* ✅ Assignment Page */}
+        <Route path="/assignments/number_systems" element={<AssignmentPage />} />
+
+        {/* ✅ Catch-All 404 */}
         <Route
           path="*"
           element={
-            <div className="p-8 text-red-600 text-xl font-semibold">
+            <div className="min-h-screen flex items-center justify-center p-8 text-red-600 text-xl font-semibold">
               404 - Page Not Found
             </div>
           }
