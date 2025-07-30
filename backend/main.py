@@ -15,26 +15,25 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 from openai import OpenAI
 
-# ───── Internal Modules (relative to backend/) ─────
-from objective_loader import load_objective_checker
-from database import students_collection, progress_collection, assignment_grades_collection
-from models import Student, Progress
-import students
+# ───── Internal Modules (absolute from backend/) ─────
+from backend.objective_loader import load_objective_checker
+from backend.database import students_collection, progress_collection, assignment_grades_collection
+from backend.models import Student, Progress
 
 # ───── Load Environment Variables ─────
 env_path = Path(__file__).resolve().parent / ".env"
 if not env_path.exists():
-    print(f"⚠️ .env file not found at {env_path}")
+    print(f"⚠️  .env file not found at {env_path}")
 load_dotenv(dotenv_path=env_path)
 
 # ───── OpenAI Client Setup ─────
 api_key = os.getenv("OPENAI_API_KEY")
-if api_key:
-    print("✅ Loaded OpenAI Key:", api_key[:10] + "...")
-    client = OpenAI(api_key=api_key)
-else:
-    print("❌ OPENAI_API_KEY not found in .env")
-    client = None  # You might want to handle this in chat route
+if not api_key:
+    raise ValueError("❌ OPENAI_API_KEY not found in environment variables")
+
+print("✅ Loaded OpenAI Key:", api_key[:10] + "...")
+client = OpenAI(api_key=api_key)
+
 
 # ───── Load AI Prompt File ─────
 SUBTOPIC_AI_PROMPTS = {}
@@ -89,6 +88,14 @@ async def update_student_allowed(student_id: str, updated_data: dict):
     if result.modified_count == 0:
         raise HTTPException(status_code=404, detail="Student not found or no change made.")
     return {"message": "Student updated"}
+
+@app.get("/students/{student_id}")
+async def get_student(student_id: str):
+    student = await students_collection.find_one({"user_id": student_id})
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    student["_id"] = str(student["_id"])  # Optional: remove ObjectId serialization issues
+    return student
 
 @app.get("/progress/{student_id}")
 async def get_progress(student_id: str):
@@ -342,6 +349,28 @@ async def get_binary_quiz():
         print("⚠️ Failed to generate quiz:", e)
         raise HTTPException(status_code=500, detail="Quiz generation error")
 
+class PracticeProblemRequest(BaseModel):
+    objective: str
+
+@app.post("/generate-practice-problem")
+async def generate_practice_problem(req: PracticeProblemRequest):
+    prompt = f"Generate a single, clear, age-appropriate practice problem to help a student practice this skill: {req.objective}. Only return one practice problem. Do not include explanations or a list."
+
+    try:
+        response = client.chat.completions.create(  # 🛠 No await here
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": "You are a helpful tutor that gives short, direct practice problems."},
+                {"role": "user", "content": prompt},
+            ]
+        )
+        return {"problem": response.choices[0].message.content}
+    except Exception as e:
+        print("❌ Practice problem generation failed:", e)
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail="Failed to generate practice problem")
+
 @app.post("/grade/{topic_id}/{subtopic_id}")
 async def dynamic_grader(
     topic_id: str,
@@ -479,9 +508,6 @@ async def get_user_progress(student_id: str):
         doc["_id"] = str(doc["_id"])
         results.append(doc)
     return results
-
-import students  # Ensure import
-app.include_router(students.router)
 
 @app.put("/reset-scores/{student_id}/{topic_id}/{subtopic_id}/{nested_subtopic_id}")
 async def reset_scores(student_id: str, topic_id: str, subtopic_id: str, nested_subtopic_id: str):

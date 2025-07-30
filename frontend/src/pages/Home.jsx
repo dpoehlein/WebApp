@@ -48,8 +48,10 @@ const Home = () => {
     return "⏳";
   };
 
-  const formatLabel = (str) =>
-    str.replace(/(^|_)(\w)/g, (_, __, char) => ` ${char.toUpperCase()}`).trim();
+  const formatLabel = (str) => {
+    if (!str || typeof str !== 'string') return "";
+    return str.replace(/(^|_)(\w)/g, (_, __, char) => ` ${char.toUpperCase()}`).trim();
+  };
 
   const nestedSubtopicsBySubtopic = {};
   progressData.forEach(entry => {
@@ -102,8 +104,14 @@ const Home = () => {
               {student ? `${student.first_name} ${student.last_name}'s Dashboard` : "Dashboard"}
             </h2>
             {Object.entries(nestedSubtopicsBySubtopic).length > 0 ? (
-              Object.entries(nestedSubtopicsBySubtopic).map(([key, entries], i) => {
-                const [topic, subtopic] = key.split('/');
+              Object.entries(nestedSubtopicsBySubtopic)
+                .filter(([key, entries]) => {
+                  const [topic, subtopic] = key.split('/');
+                  return topic !== "undefined" && subtopic !== "undefined";
+                })
+                .map(([key, entries], i) => {
+                  const [topic, subtopic] = key.split('/');
+
                 return (
                   <div key={i} className="mb-4">
                     <p className="text-sm font-semibold text-gray-700">{formatLabel(topic)}</p>

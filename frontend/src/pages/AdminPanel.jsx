@@ -1,8 +1,10 @@
-import { Navigate } from 'react-router-dom';
 import React, { useEffect, useState } from 'react';
+import { useNavigate, Navigate } from 'react-router-dom';
 import StudentDashboardModal from "../components/admin/StudentDashboardModal";
 
 const AdminPanel = () => {
+  const navigate = useNavigate();
+
   if (localStorage.getItem('admin_authenticated') !== 'true') {
     return <Navigate to='/admin-login' />;
   }
@@ -50,12 +52,17 @@ const AdminPanel = () => {
     }
 
     const payload = { ...newStudent, allowed: true };
+    console.log("🟦 Submitting student:", payload);
+
     try {
       const res = await fetch("http://localhost:8000/students", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+
+      const result = await res.json();
+      console.log("🟩 Server response:", result);
 
       if (!res.ok) throw new Error("Add failed");
 
@@ -98,7 +105,17 @@ const AdminPanel = () => {
   return (
     <>
       <div className="max-w-5xl mx-auto p-6">
-        <h1 className="text-3xl font-bold mb-6">Admin Panel - Manage Students</h1>
+        {/* Return to Home Button */}
+        <div className="mb-4 text-center">
+          <button
+            onClick={() => navigate("/")}
+            className="bg-gray-200 hover:bg-gray-300 text-black font-medium py-2 px-4 rounded"
+          >
+            ⬅ Return to Home Page
+          </button>
+        </div>
+
+        <h1 className="text-3xl font-bold mb-6 text-center">Admin Panel - Manage Students</h1>
 
         {error && <div className="text-red-600 mb-4">{error}</div>}
 
