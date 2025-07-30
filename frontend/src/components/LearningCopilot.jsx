@@ -80,9 +80,57 @@ const LearningCopilot = forwardRef(
     const [progressLoaded, setProgressLoaded] = useState(false);
     const [mergedProgress, setMergedProgress] = useState([]);
 
+    // 👇 Expose the startPracticeSession method to parent via ref
     useImperativeHandle(ref, () => ({
-      startPracticeSession: () => {
-        sendMessage("Let's begin some practice problems.");
+      startPracticeSession: async () => {
+        console.log("🚀 Starting Practice Session");
+
+        // Find the first objective not yet marked "completed"
+        const unmastered = objectives
+          .map((obj, i) => ({
+            text: obj,
+            status: mergedProgress[i],
+          }))
+          .filter((item) => item.status !== true);
+
+        if (unmastered.length > 0) {
+          const firstGap = unmastered[0];
+          const reply = `Let's strengthen your understanding of this: **${firstGap.text}**.`;
+
+          setChat((prev) => [...prev, { role: "assistant", content: reply }]);
+
+          try {
+            const genRes = await axios.post(
+              `${import.meta.env.VITE_BACKEND_URL}/generate-practice-problem`,
+              {
+                objective: firstGap.text,
+              }
+            );
+
+            const followUp = genRes.data.problem;
+
+            setChat((prev) => [
+              ...prev,
+              { role: "assistant", content: followUp },
+            ]);
+            setFirstPromptSent(true);
+          } catch (err) {
+            console.error("Practice problem error:", err);
+            setChat((prev) => [
+              ...prev,
+              { role: "assistant", content: "⚠️ Failed to load practice problem." },
+            ]);
+          }
+        } else {
+          setChat((prev) => [
+            ...prev,
+            {
+              role: "assistant",
+              content:
+                "✅ You've completed all objectives. Want to review or retake the quiz for a higher score?",
+            },
+          ]);
+        }
       },
     }));
 
@@ -119,13 +167,20 @@ const LearningCopilot = forwardRef(
             quiz_score = 0,
           } = res.data || {};
 
-          if (typeof onProgressUpdate === "function")
-            onProgressUpdate([...objective_progress]);
-          if (typeof onScoreUpdate === "function") onScoreUpdate(ai_score);
+          if (Array.isArray(objective_progress)) {
+            if (typeof onProgressUpdate === "function") {
+              onProgressUpdate([...objective_progress]);
+            }
 
-          setAiScore(ai_score);
-          setQuizScore(quiz_score);
-          setMergedProgress([...objective_progress]);
+            if (typeof onScoreUpdate === "function") {
+              onScoreUpdate(ai_score);
+            }
+
+            setAiScore(ai_score);
+            setQuizScore(quiz_score);
+            setMergedProgress([...objective_progress]);
+          }
+
           setProgressLoaded(true);
         } catch (error) {
           console.error("Failed to load saved progress", error);
@@ -142,13 +197,14 @@ const LearningCopilot = forwardRef(
       onScoreUpdate,
     ]);
 
+    // Scroll to bottom when chat updates
     useEffect(() => {
       if (chatContainerRef.current) {
-        chatContainerRef.current.scrollTop =
-          chatContainerRef.current.scrollHeight;
+        chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
       }
     }, [chat, loading]);
 
+    // Compute topic grade from objective flags
     const calculateGrade = (progressFlags) => {
       const total = progressFlags.length;
       const score = progressFlags.reduce(
@@ -158,6 +214,7 @@ const LearningCopilot = forwardRef(
       return total > 0 ? Math.round((score / total) * 100) : 0;
     };
 
+    // Save AI or Quiz progress to backend
     const persistProgress = async (flags, quiz, ai, source = "ai") => {
       const payload = {
         student_id: studentId,
@@ -181,13 +238,15 @@ const LearningCopilot = forwardRef(
       }
     };
 
+    // Core message handler
     const sendMessage = async (customMessage = null) => {
       if (!progressLoaded) return;
+
       const messageToSend = customMessage || input;
       if (!messageToSend.trim()) return;
 
-      const newMessage = { role: "user", content: messageToSend };
-      const updatedChat = [...chat, newMessage];
+      const userMessage = { role: "user", content: messageToSend };
+      const updatedChat = [...chat, userMessage];
       setChat(updatedChat);
       setInput("");
       setLoading(true);
@@ -197,33 +256,24 @@ const LearningCopilot = forwardRef(
       try {
         let reply = "";
 
+        // First-time prompt logic
         if (!firstPromptSent) {
           const intent = inferIntent(messageToSend);
           const unmastered = objectives
-            .map((obj, i) => ({
-              text: obj,
-              status: mergedProgress[i],
-              index: i,
-            }))
+            .map((obj, i) => ({ text: obj, status: mergedProgress[i], index: i }))
             .filter((item) => item.status !== true);
 
           if (unmastered.length > 0) {
             const firstGap = unmastered[0];
+
             switch (intent) {
               case "practice":
                 reply = `Let's strengthen your understanding of this: **${firstGap.text}**.`;
-
                 const genRes = await axios.post(
-                  `${
-                    import.meta.env.VITE_BACKEND_URL
-                  }/generate-practice-problem`,
-                  {
-                    objective: firstGap.text,
-                  }
+                  `${import.meta.env.VITE_BACKEND_URL}/generate-practice-problem`,
+                  { objective: firstGap.text }
                 );
-                reply += `
-
-${genRes.data.problem}`;
+                reply += `\n\n${genRes.data.problem}`;
                 break;
               case "explain":
                 reply = `Sure, let me explain this concept: **${firstGap.text}**.`;
@@ -244,79 +294,58 @@ ${genRes.data.problem}`;
           return;
         }
 
-        const res = await axios.post(
-          `${import.meta.env.VITE_BACKEND_URL}/chat`,
-          {
-            student_id: studentId,
-            message: messageToSend,
-            topic_id: topicId,
-            subtopic_id: subtopicId,
-            nested_subtopic_id: nestedSubtopicId,
-            history: updatedChat,
-            objectives,
-          }
-        );
+        // Send full message to backend
+        const res = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/chat`, {
+          student_id: studentId,
+          message: messageToSend,
+          topic_id: topicId,
+          subtopic_id: subtopicId,
+          nested_subtopic_id: nestedSubtopicId,
+          history: updatedChat,
+          objectives,
+        });
 
-        reply = res.data.reply;
-        const progressFlags = res.data.progress || [];
+        const {
+          reply,
+          progress = [],
+          ai_score = 0,
+          ready_prompt,
+        } = res.data;
 
         setChat((prev) => [...prev, { role: "assistant", content: reply }]);
 
-        if (Array.isArray(progressFlags)) {
-          const newScore = calculateGrade(progressFlags);
-
-          const updatedEvidence = { ...objectiveEvidence };
-          progressFlags.forEach((flag, i) => {
-            if (flag === true)
-              updatedEvidence[i] = (updatedEvidence[i] || 0) + 1;
-          });
-          setObjectiveEvidence(updatedEvidence);
-
-          const newProgress = progressFlags.map((flag, i) => {
-            const current = objectiveProgress[i];
+        // ✅ Update Learning Objectives
+        if (Array.isArray(progress)) {
+          const newProgress = progress.map((flag, i) => {
+            const current = mergedProgress[i]; // Compare to mergedProgress
             if (current === true || flag === true) return true;
-            if (flag === "progress" || current === "progress")
-              return "progress";
+            if (flag === "progress" || current === "progress") return "progress";
             return false;
           });
 
-          const progressChanged =
-            JSON.stringify(newProgress) !== JSON.stringify(objectiveProgress);
-          const scoreImproved = newScore > aiScore;
+          const changed =
+            JSON.stringify(newProgress) !== JSON.stringify(mergedProgress);
 
-          if (progressChanged || scoreImproved) {
-            const finalAIScore = Math.max(aiScore ?? 0, newScore);
-
-            if (typeof onProgressUpdate === "function")
-              onProgressUpdate(newProgress);
-            if (typeof onScoreUpdate === "function")
-              onScoreUpdate(finalAIScore);
-            setAiScore(finalAIScore);
-
-            persistProgress(newProgress, quizScore || 0, finalAIScore, "ai");
-
-            lastSaveRef.current = {
-              flags: JSON.stringify(newProgress),
-              score: finalAIScore,
-            };
-          }
-
-          if (
-            progressFlags.length === objectives.length &&
-            progressFlags.every((p) => p === true) &&
-            !completionMessageSent
-          ) {
-            setChat((prev) => [
-              ...prev,
-              {
-                role: "assistant",
-                content:
-                  "✅ Awesome work! You’ve completed all objectives. Try the quiz or explore another topic!",
-              },
-            ]);
-            setCompletionMessageSent(true);
+          if (changed) {
+            setMergedProgress(newProgress);
+            if (typeof onProgressUpdate === "function") {
+              onProgressUpdate(newProgress); // Notify parent
+            }
+            persistProgress(newProgress, quizScore, ai_score, "ai");
           }
         }
+
+        // ✅ Update AI Score
+        if (typeof onScoreUpdate === "function") {
+          onScoreUpdate(ai_score, "ai");
+        }
+        setAiScore(ai_score);
+
+        // ✅ Final encouragement message
+        if (ready_prompt) {
+          setChat((prev) => [...prev, { role: "assistant", content: ready_prompt }]);
+        }
+
       } catch (err) {
         console.error("Chat error:", err);
         setChat((prev) => [
@@ -334,7 +363,8 @@ ${genRes.data.problem}`;
     const handleQuizComplete = ({ score }) => {
       setQuizScore(score);
       const best = aiScore !== null ? Math.max(aiScore, score) : score;
-      if (typeof onScoreUpdate === "function") onScoreUpdate(best);
+      if (typeof onScoreUpdate === "function") onScoreUpdate(score, "quiz");
+      persistProgress(mergedProgress, score, aiScore ?? 0, "quiz");
     };
 
     return (
@@ -369,18 +399,6 @@ ${genRes.data.problem}`;
             ))}
             {loading && (
               <div className="text-center text-gray-500">Thinking…</div>
-            )}
-
-            {/* Extra Practice Button - appears after first prompt */}
-            {firstPromptSent && !loading && (
-              <div className="text-center mt-4">
-                <button
-                  onClick={() => sendMessage("practice")}
-                  className="bg-purple-600 text-white px-4 py-2 rounded"
-                >
-                  Give me another practice problem
-                </button>
-              </div>
             )}
           </div>
 

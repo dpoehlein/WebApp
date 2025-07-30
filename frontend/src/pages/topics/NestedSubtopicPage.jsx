@@ -14,56 +14,8 @@ import Footer from "../../components/Footer";
 import Banner from "../../components/Banner";
 import LearningObjectives from "../../components/LearningObjectives";
 import learningObjectives from "../../data/ai/learningObjectives";
-
-// Lazy-loaded walkthrough demos
-const walkthroughComponents = {
-  binary: React.lazy(() =>
-    import("../../components/digital_electronics/number_systems/BinaryDemo")
-  ),
-  octal: React.lazy(() =>
-    import("../../components/digital_electronics/number_systems/OctalDemo")
-  ),
-  hexadecimal: React.lazy(() =>
-    import(
-      "../../components/digital_electronics/number_systems/HexadecimalDemo"
-    )
-  ),
-  bcd: React.lazy(() =>
-    import("../../components/digital_electronics/number_systems/BcdDemo")
-  ),
-  gray_code: React.lazy(() =>
-    import("../../components/digital_electronics/number_systems/GrayCodeDemo")
-  ),
-};
-
-// Lazy-loaded quiz modals
-const quizModals = {
-  binary: React.lazy(() =>
-    import(
-      "../../components/digital_electronics/number_systems/BinaryQuizModal.jsx"
-    )
-  ),
-  octal: React.lazy(() =>
-    import(
-      "../../components/digital_electronics/number_systems/OctalQuizModal.jsx"
-    )
-  ),
-  hexadecimal: React.lazy(() =>
-    import(
-      "../../components/digital_electronics/number_systems/HexadecimalQuizModal.jsx"
-    )
-  ),
-  bcd: React.lazy(() =>
-    import(
-      "../../components/digital_electronics/number_systems/BcdQuizModal.jsx"
-    )
-  ),
-  gray_code: React.lazy(() =>
-    import(
-      "../../components/digital_electronics/number_systems/GraycodeQuizModal.jsx"
-    )
-  ),
-};
+import ErrorBoundary from "../../components/ErrorBoundary";
+import loadDynamicComponent from "../../utils/loadDynamicComponent";
 
 const NestedSubtopicPage = () => {
   const { topicId, subtopicId, nestedSubtopicId } = useParams();
@@ -76,22 +28,29 @@ const NestedSubtopicPage = () => {
   const [topicGrade, setTopicGrade] = useState(0);
   const [isQuizOpen, setIsQuizOpen] = useState(false);
   const fetchedRef = useRef(false);
-  const lastSavedProgressRef = useRef(null);
+  const lastSavedProgressRef = useRef([]);
   const lastSavedScoreRef = useRef({ quiz: 0, ai: 0 });
-  const QuizModal = quizModals[nestedSubtopicId] || null;
-  const WalkthroughComponent = walkthroughComponents[nestedSubtopicId] || null;
   const copilotRef = useRef(null);
+
+  const QuizModal = useMemo(
+    () =>
+      loadDynamicComponent("quiz", topicId, subtopicId, nestedSubtopicId) ||
+      null,
+    [topicId, subtopicId, nestedSubtopicId]
+  );
+
+  const WalkthroughComponent = useMemo(
+    () =>
+      loadDynamicComponent("walkthrough", topicId, subtopicId, nestedSubtopicId) ||
+      null,
+    [topicId, subtopicId, nestedSubtopicId]
+  );
 
   const isValid = [topicId, subtopicId, nestedSubtopicId].every(
     (val) => val && val !== "undefined"
   );
 
   if (!isValid) {
-    console.warn("⛔ Invalid route params", {
-      topicId,
-      subtopicId,
-      nestedSubtopicId,
-    });
     return (
       <div className="p-6 text-red-600 font-semibold">
         Invalid route parameters.
@@ -117,10 +76,7 @@ const NestedSubtopicPage = () => {
   const persistProgress = useCallback(
     async (flags, quiz, ai, source = "ai") => {
       const studentId = localStorage.getItem("student_id");
-      if (!studentId || !isValid) {
-        console.warn("🚫 Skipping persistProgress due to invalid inputs");
-        return;
-      }
+      if (!studentId || !isValid) return;
 
       try {
         await fetch(`${import.meta.env.VITE_BACKEND_URL}/save-progress`, {
@@ -137,9 +93,8 @@ const NestedSubtopicPage = () => {
             quiz_score: source === "quiz" ? quiz : undefined,
           }),
         });
-        console.log("💾 Progress saved:", { flags, quiz, ai, source });
       } catch (err) {
-        console.error("❌ Persist failed:", err);
+        console.error("Failed to save progress:", err);
       }
     },
     [topicId, subtopicId, nestedSubtopicId, isValid]
@@ -149,22 +104,17 @@ const NestedSubtopicPage = () => {
     if (!objectives.length || !isValid || fetchedRef.current) return;
 
     const studentId = localStorage.getItem("student_id");
-    if (!studentId) {
-      console.warn("🚫 Missing student_id");
-      return;
-    }
+    if (!studentId) return;
 
     fetchedRef.current = true;
 
     const fetchProgress = async () => {
       try {
         const res = await fetch(
-          `${
-            import.meta.env.VITE_BACKEND_URL
-          }/get-progress?student_id=${studentId}&topic_id=${topicId}&subtopic_id=${subtopicId}&nested_subtopic_id=${nestedSubtopicId}`
+          `${import.meta.env.VITE_BACKEND_URL}/get-progress?student_id=${studentId}&topic_id=${topicId}&subtopic_id=${subtopicId}&nested_subtopic_id=${nestedSubtopicId}`
         );
-
         const data = await res.json();
+
         const quiz = data.quiz_score ?? 0;
         const ai = data.ai_score ?? 0;
         const flags = Array.isArray(data.objective_progress)
@@ -174,12 +124,14 @@ const NestedSubtopicPage = () => {
         setQuizScore(quiz);
         setAIScore(ai);
         setTopicGrade(Math.max(quiz, ai));
-        setObjectiveProgress(flags);
-
+        setObjectiveProgress(
+          flags.length === objectives.length
+            ? flags
+            : objectives.map(() => false)
+        );
         lastSavedProgressRef.current = [...flags];
         lastSavedScoreRef.current = { quiz, ai };
       } catch (err) {
-        console.error("❌ Failed to load saved progress:", err);
         setObjectiveProgress(objectives.map(() => false));
       }
     };
@@ -205,7 +157,7 @@ const NestedSubtopicPage = () => {
         setVideoData(videos);
       })
       .catch((err) => {
-        console.error("❌ Failed to load subtopic content:", err);
+        console.error("Failed to load subtopic content:", err);
       });
   }, [topicId, subtopicId, nestedSubtopicId]);
 
@@ -234,13 +186,17 @@ const NestedSubtopicPage = () => {
     }
   };
 
+  if (!subtopicData) {
+    return <div className="p-8 text-gray-600">Loading...</div>;
+  }
+
   const handleStartPractice = () => {
     if (copilotRef.current) {
       copilotRef.current.startPracticeSession();
+    } else {
+      console.warn("Copilot ref is not ready.");
     }
   };
-
-  if (!subtopicData) return <div className="p-8 text-gray-600">Loading...</div>;
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-100">
@@ -304,14 +260,18 @@ const NestedSubtopicPage = () => {
               </div>
             )}
 
-            {WalkthroughComponent && (
-              <Suspense fallback={<div>Loading walkthrough...</div>}>
-                <div className="mt-6">
-                  <h2 className="text-lg font-semibold mb-2">How It Works</h2>
-                  <WalkthroughComponent />
-                </div>
-              </Suspense>
-            )}
+            <div className="mt-6">
+              <h2 className="text-lg font-semibold mb-2">How It Works</h2>
+              {WalkthroughComponent ? (
+                <Suspense fallback={<div>Loading walkthrough...</div>}>
+                  <ErrorBoundary fallback={<div>⚠️ Walkthrough not available yet.</div>}>
+                    <WalkthroughComponent />
+                  </ErrorBoundary>
+                </Suspense>
+              ) : (
+                <div className="text-gray-500 italic">⚠️ Walkthrough is not yet available for this module.</div>
+              )}
+            </div>
           </ContentContainer>
         </div>
 
@@ -347,18 +307,24 @@ const NestedSubtopicPage = () => {
             </div>
           </div>
 
-          {QuizModal && (
+          {QuizModal ? (
             <Suspense fallback={<div>Loading quiz...</div>}>
-              <QuizModal
-                isOpen={isQuizOpen}
-                onClose={() => setIsQuizOpen(false)}
-                onQuizComplete={handleQuizCompletion}
-              />
+              <ErrorBoundary fallback={<div>⚠️ Quiz not available yet.</div>}>
+                <QuizModal
+                  isOpen={isQuizOpen}
+                  onClose={() => setIsQuizOpen(false)}
+                  onQuizComplete={handleQuizCompletion}
+                />
+              </ErrorBoundary>
             </Suspense>
+          ) : (
+            <div className="mt-4 text-sm text-gray-500 italic">
+              ⚠️ No quiz has been created for this subtopic yet.
+            </div>
           )}
 
           <LearningCopilot
-            ref={copilotRef}
+            ref={copilotRef}  // ✅ This enables external control like startPracticeSession()
             topicId={topicId}
             subtopicId={subtopicId}
             nestedSubtopicId={nestedSubtopicId}
@@ -374,12 +340,19 @@ const NestedSubtopicPage = () => {
                 lastSavedProgressRef.current = [...flags];
               }
             }}
-            onScoreUpdate={(score) => {
-              if (score !== lastSavedScoreRef.current.ai) {
+            onScoreUpdate={(score, source = "ai") => {
+              if (source === "ai" && score !== lastSavedScoreRef.current.ai) {
                 setAIScore(score);
                 setTopicGrade(Math.max(score, quizScore));
                 persistProgress(objectiveProgress, quizScore, score, "ai");
                 lastSavedScoreRef.current.ai = score;
+              }
+
+              if (source === "quiz" && score !== lastSavedScoreRef.current.quiz) {
+                setQuizScore(score);
+                setTopicGrade(Math.max(score, aiScore));
+                persistProgress(objectiveProgress, score, aiScore, "quiz");
+                lastSavedScoreRef.current.quiz = score;
               }
             }}
             QuizModal={QuizModal}

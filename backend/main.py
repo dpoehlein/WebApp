@@ -329,6 +329,8 @@ async def chat(request: ChatRequest):
         return {
             "reply": reply,
             "progress": progress_flags,
+            "ai_score": ai_score,
+            "topic_grade": max(ai_score, existing.get("quiz_score", 0) if existing else 0),
             "ready_prompt": ready_prompt
         }
 
