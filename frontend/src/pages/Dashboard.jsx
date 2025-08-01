@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from "react";
 
 const Dashboard = () => {
   const [progressData, setProgressData] = useState([]);
   const [loading, setLoading] = useState(true);
-  const userId = localStorage.getItem('student_id'); // Assumes user ID is stored here
+  const userId = localStorage.getItem("student_id"); // Assumes user ID is stored here
 
   useEffect(() => {
     const fetchProgress = async () => {
@@ -28,7 +28,9 @@ const Dashboard = () => {
       {loading ? (
         <p className="text-gray-500">Loading your progress...</p>
       ) : progressData.length === 0 ? (
-        <p className="text-gray-600">No progress recorded yet. Start exploring some topics!</p>
+        <p className="text-gray-600">
+          No progress recorded yet. Start exploring some topics!
+        </p>
       ) : (
         <table className="w-full table-auto border border-gray-300 rounded shadow text-sm">
           <thead className="bg-gray-100">
@@ -36,7 +38,6 @@ const Dashboard = () => {
               <th className="border px-4 py-2">Topic</th>
               <th className="border px-4 py-2">Subtopic</th>
               <th className="border px-4 py-2">Nested Subtopic</th>
-              <th className="border px-4 py-2">AI Score</th>
               <th className="border px-4 py-2">Quiz Score</th>
               <th className="border px-4 py-2">Assignment Score</th>
               <th className="border px-4 py-2">Updated</th>
@@ -47,11 +48,18 @@ const Dashboard = () => {
               <tr key={idx} className="text-center">
                 <td className="border px-2 py-1">{entry.topic}</td>
                 <td className="border px-2 py-1">{entry.subtopic}</td>
-                <td className="border px-2 py-1 capitalize">{entry.nested_subtopic}</td>
-                <td className="border px-2 py-1 text-blue-700 font-medium">{entry.ai_score ?? '-'}</td>
-                <td className="border px-2 py-1 text-green-700 font-medium">{entry.quiz_score ?? '-'}</td>
-                <td className="border px-2 py-1 text-purple-700 font-medium">{entry.assignment_score ?? '-'}</td>
-                <td className="border px-2 py-1 text-gray-600">{new Date(entry.updated_at).toLocaleString()}</td>
+                <td className="border px-2 py-1 capitalize">
+                  {entry.nested_subtopic}
+                </td>
+                <td className="border px-2 py-1 text-green-700 font-medium">
+                  {entry.quiz_score ?? "-"}
+                </td>
+                <td className="border px-2 py-1 text-purple-700 font-medium">
+                  {entry.assignment_score ?? "-"}
+                </td>
+                <td className="border px-2 py-1 text-gray-600">
+                  {new Date(entry.updated_at).toLocaleString()}
+                </td>
               </tr>
             ))}
           </tbody>

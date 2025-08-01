@@ -140,14 +140,13 @@ async def get_progress(
         progress.get("quiz_objective_progress", [])
     )
 
-    topic_grade = max(progress.get("quiz_score", 0), progress.get("ai_score", 0))
+    topic_grade = progress.get("quiz_score", 0)
     print("✅ Merged Objective Progress:", merged_flags)
     print("🏁 Topic Grade:", topic_grade)
 
     return {
         "objective_progress": merged_flags,
         "quiz_score": progress.get("quiz_score", 0),
-        "ai_score": progress.get("ai_score", 0),
         "assignment_score": progress.get("assignment_score", 0),
         "topic_grade": topic_grade,
     }
@@ -179,7 +178,7 @@ def load_objective_checker(topic_id: str, subtopic_id: Optional[str], nested_sub
                 spec = importlib.util.spec_from_file_location("objectives", abs_nested_path)
                 module = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(module)
-                return getattr(module, "get_objective_state", None)
+                return getattr(module, "evaluate_objectives", None)
             except Exception as e:
                 print(f"❌ Error loading nested objective checker: {e}")
 
@@ -206,7 +205,7 @@ def load_nested_chat_evaluator(topic_id: str, subtopic_id: str):
         print(f"❌ Failed to load evaluator: {e}")
         return None, {}
 
-@app.post("/chat")
+@app.post("/chat") 
 async def chat(request: ChatRequest):
     print(f"📥 Received chat request: topic_id={request.topic_id}, subtopic_id={request.subtopic_id}, nested_subtopic_id={request.nested_subtopic_id}")
     print(f"📝 Chat message: {request.message}")
@@ -223,7 +222,7 @@ async def chat(request: ChatRequest):
             objectives_list = "\n".join([f"- {obj}" for obj in request.objectives])
             system_message += f"\n\nThe student is working toward:\n{objectives_list}"
 
-        system_message += "\n\nImportant: Ask only ONE question at a time."
+        system_message += "\n\nImportant: Ask only ONE question at a time. Do NOT ask what the student wants to do next — automatically move to the next objective."
 
         messages = [{"role": "system", "content": system_message}]
         if not request.history:
@@ -262,7 +261,7 @@ async def chat(request: ChatRequest):
             print(f"⚠️ No objective checker found for {request.topic_id}/{request.subtopic_id}")
             progress_flags = []
 
-        # ---- Load Stored Progress (to preserve prior wins) ----
+        # ---- Load Stored Progress ----
         stored_progress = []
         try:
             existing = await progress_collection.find_one({
@@ -292,16 +291,13 @@ async def chat(request: ChatRequest):
         else:
             print(f"⚠️ Flag length mismatch — stored: {len(stored_progress)}, new: {len(progress_flags)}")
 
-        # ---- AI Score Calculation ----
-        def calculate_ai_score(flags):
-            total = len(flags)
-            earned = sum(1 if f is True else 0.5 if f == "progress" else 0 for f in flags)
-            return round((earned / total) * 100) if total else 0
-
-        ai_score = calculate_ai_score(progress_flags)
+        # ---- Grade Calculation from Progress ----
+        total = len(progress_flags)
+        completed = sum(1 if p is True else 0.5 if p == "progress" else 0 for p in progress_flags)
+        topic_grade = round((completed / total) * 100) if total else 0
 
         print("📬 Final Progress Flags:", progress_flags)
-        print("📈 Final AI Score:", ai_score)
+        print("📈 Topic Grade from Progress:", topic_grade)
 
         # ---- Optional: Completion Message ----
         ready_prompt = None
@@ -318,7 +314,6 @@ async def chat(request: ChatRequest):
             topic_id=request.topic_id,
             subtopic_id=request.subtopic_id,
             nested_subtopic_id=request.nested_subtopic_id,
-            ai_score=ai_score,
             ai_objective_progress=progress_flags
         )
         await save_progress(save_payload)
@@ -329,8 +324,7 @@ async def chat(request: ChatRequest):
         return {
             "reply": reply,
             "progress": progress_flags,
-            "ai_score": ai_score,
-            "topic_grade": max(ai_score, existing.get("quiz_score", 0) if existing else 0),
+            "topic_grade": max(topic_grade, existing.get("quiz_score", 0) if existing else 0),
             "ready_prompt": ready_prompt
         }
 
@@ -427,7 +421,6 @@ class ScoreUpdate(BaseModel):
     subtopic_id: str
     nested_subtopic_id: str
     quiz_score: int = 0
-    ai_score: int = 0
     assignment_score: int = 0
     activity_id: str = ""
     objective_progress: Optional[List[Union[bool, str]]]=[]
@@ -438,7 +431,6 @@ class SaveProgressRequest(BaseModel):
     subtopic_id: str
     nested_subtopic_id: str
     quiz_score: Optional[int] = None
-    ai_score: Optional[int] = None
     assignment_score: Optional[int] = 0
     activity_id: Optional[str] = None
     quiz_objective_progress: Optional[List[Union[bool, str]]] = []
@@ -472,9 +464,8 @@ async def save_progress(payload: SaveProgressRequest):
 
     # Scores (fallbacks if None or not in payload)
     quiz_score = payload.quiz_score if payload.quiz_score is not None else (existing.get("quiz_score", 0) if existing else 0)
-    ai_score = payload.ai_score if payload.ai_score is not None else (existing.get("ai_score", 0) if existing else 0)
     assignment_score = payload.assignment_score if payload.assignment_score is not None else (existing.get("assignment_score", 0) if existing else 0)
-    topic_grade = max(quiz_score, ai_score)
+    topic_grade = quiz_score  # Only use quiz_score to determine topic_grade
 
     update_doc = {
         "$set": {
@@ -483,7 +474,6 @@ async def save_progress(payload: SaveProgressRequest):
             "subtopic_id": payload.subtopic_id,
             "nested_subtopic_id": payload.nested_subtopic_id,
             "quiz_score": quiz_score,
-            "ai_score": ai_score,
             "assignment_score": assignment_score,
             "topic_grade": topic_grade,
             "activity_id": payload.activity_id if payload.activity_id is not None else (existing.get("activity_id") if existing else None),
@@ -522,7 +512,6 @@ async def reset_scores(student_id: str, topic_id: str, subtopic_id: str, nested_
         },
         {
             "$set": {
-                "ai_score": 0,
                 "quiz_score": 0,
                 "topic_grade": 0
             }

@@ -1,5 +1,7 @@
 const welcomeMessages = {
-  binary: `🎓 Welcome! I'm your AI Assistant here to help you learn about **Binary Numbers**.  
+  binary: (
+    title
+  ) => `🎓 Welcome! I'm your AI Assistant here to help you learn about **${title}**.  
 You can ask questions, practice problems, or explore concepts.
 
 🧠 You can earn credit for this topic by taking the quiz, completing Copilot practice problems, or answering conceptual questions in the chat.`,
