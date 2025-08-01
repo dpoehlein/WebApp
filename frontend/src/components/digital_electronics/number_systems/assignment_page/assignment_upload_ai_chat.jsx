@@ -1,16 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 
 const AssignmentUploadAIChat = () => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [score, setScore] = useState(null);
-  const [feedback, setFeedback] = useState('');
+  const [feedback, setFeedback] = useState("");
   const [error, setError] = useState(null);
 
   const handleFileChange = (e) => {
     setSelectedFile(e.target.files[0]);
     setScore(null);
-    setFeedback('');
+    setFeedback("");
     setError(null);
   };
 
@@ -27,10 +27,13 @@ const AssignmentUploadAIChat = () => {
       const formData = new FormData();
       formData.append("file", selectedFile);
 
-      const response = await fetch("http://localhost:8000/grade/digital_electronics/number_systems", {
-        method: "POST",
-        body: formData
-      });
+      const response = await fetch(
+        "http://localhost:8000/grade/digital_electronics/number_systems",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
 
       if (!response.ok) throw new Error("Upload failed.");
 
@@ -48,13 +51,11 @@ const AssignmentUploadAIChat = () => {
           subtopic: "number_systems",
           nested_subtopic: "binary",
           quiz_score: 0,
-          ai_score: 0,
           assignment_score: result.score,
-          activity_id: "de_ns_bin_001"
+          activity_id: "de_ns_bin_001",
         }),
       });
       console.log("✅ Assignment score saved.");
-
     } catch (err) {
       console.error("Upload error:", err);
       setError("Something went wrong. Please try again.");
@@ -65,7 +66,9 @@ const AssignmentUploadAIChat = () => {
 
   return (
     <div className="bg-white p-4 rounded shadow">
-      <h2 className="text-lg font-semibold mb-2">Upload Your Excel Assignment</h2>
+      <h2 className="text-lg font-semibold mb-2">
+        Upload Your Excel Assignment
+      </h2>
       <input type="file" onChange={handleFileChange} className="mb-2" />
       <button
         onClick={handleUpload}

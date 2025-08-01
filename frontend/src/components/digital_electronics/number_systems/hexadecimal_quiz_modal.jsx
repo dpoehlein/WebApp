@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 
-const OctalQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
-
+const HexadecimalQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
   useEffect(() => {
     if (score !== null && score > 0) {
       const saveQuizScore = async () => {
@@ -13,11 +12,10 @@ const OctalQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
               user_id: localStorage.getItem("student_id"),
               topic: "digital_electronics",
               subtopic: "number_systems",
-              nested_subtopic: "octal",
+              nested_subtopic: "hexadecimal",
               quiz_score: score,
-              ai_score: 0,
               assignment_score: 0,
-              activity_id: "de_ns_oct_001"
+              activity_id: "de_ns_hex_001",
             }),
           });
           console.log("✅ Quiz score saved to backend.");
@@ -36,55 +34,55 @@ const OctalQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
 
   const generatedQuestions = [
     {
-      "type": "dec_to_oct",
-      "question": "What is the octal representation of decimal 210?",
-      "correctAnswer": "322"
+      type: "dec_to_hex",
+      question: "What is the hexadecimal representation of decimal 255?",
+      correctAnswer: "FF",
     },
     {
-      "type": "oct_to_dec",
-      "question": "What is the decimal value of octal 112?",
-      "correctAnswer": "74"
+      type: "hex_to_dec",
+      question: "What is the decimal value of hexadecimal A0?",
+      correctAnswer: "160",
     },
     {
-      "type": "oct_to_dec",
-      "question": "What is the decimal value of octal 312?",
-      "correctAnswer": "202"
+      type: "dec_to_hex",
+      question: "What is the hexadecimal representation of decimal 175?",
+      correctAnswer: "AF",
     },
     {
-      "type": "oct_to_dec",
-      "question": "What is the decimal value of octal 357",
-      "correctAnswer": "239"
+      type: "hex_to_dec",
+      question: "What is the decimal value of hexadecimal 4D?",
+      correctAnswer: "77",
     },
     {
-      "type": "dec_to_oct",
-      "question": "What is the octal representation of decimal 85?",
-      "correctAnswer": "125"
+      type: "dec_to_hex",
+      question: "What is the hexadecimal representation of decimal 99?",
+      correctAnswer: "63",
     },
     {
-      "type": "dec_to_oct",
-      "question": "What is the octal representation of decimal 112?",
-      "correctAnswer": "160"
+      type: "dec_to_hex",
+      question: "What is the hexadecimal representation of decimal 188?",
+      correctAnswer: "BC",
     },
     {
-      "type": "oct_to_dec",
-      "question": "What is the decimal value of octal 245?",
-      "correctAnswer": "165"
+      type: "hex_to_dec",
+      question: "What is the decimal value of hexadecimal 7F?",
+      correctAnswer: "127",
     },
     {
-      "type": "dec_to_oct",
-      "question": "What is the octal representation of decimal 173?",
-      "correctAnswer": "255"
+      type: "hex_to_dec",
+      question: "What is the decimal value of hexadecimal 10?",
+      correctAnswer: "16",
     },
     {
-      "type": "dec_to_oct",
-      "question": "What is the octal representation of decimal 152?",
-      "correctAnswer": "230"
+      type: "dec_to_hex",
+      question: "What is the hexadecimal representation of decimal 200?",
+      correctAnswer: "C8",
     },
     {
-      "type": "oct_to_dec",
-      "question": "What is the decimal value of octal 337?",
-      "correctAnswer": "223"
-    }
+      type: "hex_to_dec",
+      question: "What is the decimal value of hexadecimal 32?",
+      correctAnswer: "50",
+    },
   ];
 
   const handleStartQuiz = () => {
@@ -101,7 +99,7 @@ const OctalQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
   const handleSubmit = () => {
     let correct = 0;
     questions.forEach((q, i) => {
-      if (answers[i]?.trim().toLowerCase() === q.correctAnswer.toLowerCase()) {
+      if (answers[i]?.trim().toUpperCase() === q.correctAnswer.toUpperCase()) {
         correct++;
       }
     });
@@ -112,16 +110,19 @@ const OctalQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
 
     if (onQuizComplete) {
       const objectiveMap = {
-        dec_to_oct: 'octal_conversion_decimal_to_octal',
-        oct_to_dec: 'octal_conversion_octal_to_decimal'
+        dec_to_hex: "hex_conversion_decimal_to_hex",
+        hex_to_dec: "hex_conversion_hex_to_decimal",
       };
 
       const objectiveCounts = {};
       questions.forEach((q, i) => {
         const key = objectiveMap[q.type];
-        if (!objectiveCounts[key]) objectiveCounts[key] = { correct: 0, total: 0 };
+        if (!objectiveCounts[key])
+          objectiveCounts[key] = { correct: 0, total: 0 };
         objectiveCounts[key].total++;
-        if (answers[i]?.trim().toLowerCase() === q.correctAnswer.toLowerCase()) {
+        if (
+          answers[i]?.trim().toUpperCase() === q.correctAnswer.toUpperCase()
+        ) {
           objectiveCounts[key].correct++;
         }
       });
@@ -132,7 +133,7 @@ const OctalQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
 
       onQuizComplete({
         score: finalScore,
-        objectiveKeys: achievedObjectives
+        objectiveKeys: achievedObjectives,
       });
     }
   };
@@ -142,7 +143,7 @@ const OctalQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
       <div className="bg-white rounded-xl shadow-lg p-6 max-w-3xl w-full overflow-y-auto max-h-[90vh]">
-        <h2 className="text-xl font-bold mb-4">Octal Quiz</h2>
+        <h2 className="text-xl font-bold mb-4">Hexadecimal Quiz</h2>
 
         {submitted && (
           <div className="flex items-center justify-between mb-4">
@@ -177,7 +178,9 @@ const OctalQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
           <div className="space-y-4">
             {questions.map((q, i) => (
               <div key={i}>
-                <p className="font-medium">{i + 1}. {q.question}</p>
+                <p className="font-medium">
+                  {i + 1}. {q.question}
+                </p>
                 <input
                   type="text"
                   className="border rounded px-2 py-1 mt-1 w-full"
@@ -186,9 +189,17 @@ const OctalQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
                   disabled={submitted}
                 />
                 {submitted && (
-                  <p className={`mt-1 text-sm ${answers[i]?.trim().toLowerCase() === q.correctAnswer.toLowerCase() ? 'text-green-600' : 'text-red-600'}`}>
-                    {answers[i]?.trim().toLowerCase() === q.correctAnswer.toLowerCase()
-                      ? '✅ Correct'
+                  <p
+                    className={`mt-1 text-sm ${
+                      answers[i]?.trim().toUpperCase() ===
+                      q.correctAnswer.toUpperCase()
+                        ? "text-green-600"
+                        : "text-red-600"
+                    }`}
+                  >
+                    {answers[i]?.trim().toUpperCase() ===
+                    q.correctAnswer.toUpperCase()
+                      ? "✅ Correct"
                       : `❌ Correct Answer: ${q.correctAnswer}`}
                   </p>
                 )}
@@ -210,4 +221,4 @@ const OctalQuizModal = ({ isOpen, onClose, onQuizComplete }) => {
   );
 };
 
-export default OctalQuizModal;
+export default HexadecimalQuizModal;

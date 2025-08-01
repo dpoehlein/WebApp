@@ -1,20 +1,20 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate, Navigate } from 'react-router-dom';
-import StudentDashboardModal from "../components/admin/StudentDashboardModal";
+import React, { useEffect, useState } from "react";
+import { useNavigate, Navigate } from "react-router-dom";
+import StudentDashboardModal from "../components/admin/student_dashboard_modal";
 
 const AdminPanel = () => {
   const navigate = useNavigate();
 
-  if (localStorage.getItem('admin_authenticated') !== 'true') {
-    return <Navigate to='/admin-login' />;
+  if (localStorage.getItem("admin_authenticated") !== "true") {
+    return <Navigate to="/admin-login" />;
   }
 
   const [students, setStudents] = useState([]);
   const [newStudent, setNewStudent] = useState({
-    user_id: '',
-    first_name: '',
-    last_name: '',
-    email: ''
+    user_id: "",
+    first_name: "",
+    last_name: "",
+    email: "",
   });
   const [error, setError] = useState(null);
 
@@ -46,7 +46,12 @@ const AdminPanel = () => {
   }, []);
 
   const handleAdd = async () => {
-    if (!newStudent.user_id || !newStudent.first_name || !newStudent.last_name || !newStudent.email) {
+    if (
+      !newStudent.user_id ||
+      !newStudent.first_name ||
+      !newStudent.last_name ||
+      !newStudent.email
+    ) {
       setError("Please fill out all fields.");
       return;
     }
@@ -67,7 +72,7 @@ const AdminPanel = () => {
       if (!res.ok) throw new Error("Add failed");
 
       await fetchStudents();
-      setNewStudent({ user_id: '', first_name: '', last_name: '', email: '' });
+      setNewStudent({ user_id: "", first_name: "", last_name: "", email: "" });
       setError(null);
     } catch (err) {
       console.error("❌ Failed to add student:", err);
@@ -78,7 +83,7 @@ const AdminPanel = () => {
   const handleDelete = async (user_id) => {
     try {
       const res = await fetch(`http://localhost:8000/students/${user_id}`, {
-        method: "DELETE"
+        method: "DELETE",
       });
       if (!res.ok) throw new Error();
       await fetchStudents();
@@ -90,11 +95,14 @@ const AdminPanel = () => {
   const toggleAllowed = async (student) => {
     try {
       const updated = { ...student, allowed: !student.allowed };
-      const res = await fetch(`http://localhost:8000/students/${student.user_id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updated),
-      });
+      const res = await fetch(
+        `http://localhost:8000/students/${student.user_id}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updated),
+        }
+      );
       if (!res.ok) throw new Error();
       await fetchStudents();
     } catch {
@@ -115,7 +123,9 @@ const AdminPanel = () => {
           </button>
         </div>
 
-        <h1 className="text-3xl font-bold mb-6 text-center">Admin Panel - Manage Students</h1>
+        <h1 className="text-3xl font-bold mb-6 text-center">
+          Admin Panel - Manage Students
+        </h1>
 
         {error && <div className="text-red-600 mb-4">{error}</div>}
 
@@ -127,28 +137,36 @@ const AdminPanel = () => {
               type="text"
               placeholder="User ID"
               value={newStudent.user_id}
-              onChange={(e) => setNewStudent({ ...newStudent, user_id: e.target.value })}
+              onChange={(e) =>
+                setNewStudent({ ...newStudent, user_id: e.target.value })
+              }
               className="border px-2 py-1 rounded min-w-[140px]"
             />
             <input
               type="text"
               placeholder="First Name"
               value={newStudent.first_name}
-              onChange={(e) => setNewStudent({ ...newStudent, first_name: e.target.value })}
+              onChange={(e) =>
+                setNewStudent({ ...newStudent, first_name: e.target.value })
+              }
               className="border px-2 py-1 rounded min-w-[140px]"
             />
             <input
               type="text"
               placeholder="Last Name"
               value={newStudent.last_name}
-              onChange={(e) => setNewStudent({ ...newStudent, last_name: e.target.value })}
+              onChange={(e) =>
+                setNewStudent({ ...newStudent, last_name: e.target.value })
+              }
               className="border px-2 py-1 rounded min-w-[140px]"
             />
             <input
               type="email"
               placeholder="Email"
               value={newStudent.email}
-              onChange={(e) => setNewStudent({ ...newStudent, email: e.target.value })}
+              onChange={(e) =>
+                setNewStudent({ ...newStudent, email: e.target.value })
+              }
               className="border px-2 py-1 rounded min-w-[180px]"
             />
             <button
@@ -176,7 +194,9 @@ const AdminPanel = () => {
             {students.map((s, idx) => (
               <tr key={idx}>
                 <td className="border px-2 py-1">{s.user_id}</td>
-                <td className="border px-2 py-1">{s.first_name} {s.last_name}</td>
+                <td className="border px-2 py-1">
+                  {s.first_name} {s.last_name}
+                </td>
                 <td className="border px-2 py-1">{s.email}</td>
                 <td className="border px-2 py-1 text-center">
                   <div className="flex justify-center gap-2">
@@ -197,7 +217,9 @@ const AdminPanel = () => {
                 <td className="border px-2 py-1 text-center">
                   <button
                     onClick={() => toggleAllowed(s)}
-                    className={`px-2 py-1 rounded ${s.allowed ? "bg-green-500" : "bg-red-500"} text-white`}
+                    className={`px-2 py-1 rounded ${
+                      s.allowed ? "bg-green-500" : "bg-red-500"
+                    } text-white`}
                   >
                     {s.allowed ? "Yes" : "No"}
                   </button>
