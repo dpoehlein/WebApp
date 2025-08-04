@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function DownloadButton() {
+function DownloadButton() {
     const handleDownload = () => {
         const link = document.createElement('a');
         link.href = '/assets/assignments/Number_Systems_Assignment.xlsx';
@@ -19,3 +19,5 @@ export default function DownloadButton() {
         </button>
     );
 }
+
+export default DownloadButton;

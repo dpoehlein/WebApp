@@ -1,11 +1,11 @@
-// src/pages/topics/SubtopicPage.jsx
-import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
-import ContentContainer from "../../components/content_container";
-import Breadcrumb from "../../components/breadcrumb";
-import Footer from "../../components/footer";
-import Banner from "../../components/banner";
-import NestedSubtopicCard from "../../components/nested_subtopic_card";
+// src/pages/topics/subtopic_page.jsx
+import React, { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import ContentContainer from '../../components/content_container';
+import Breadcrumb from '../../components/breadcrumb';
+import Footer from '../../components/footer';
+import Banner from '../../components/banner';
+import NestedSubtopicCard from '../../components/nested_subtopic_card';
 
 const SubtopicPage = () => {
   const { topic_id, subtopic_id } = useParams();

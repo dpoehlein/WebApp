@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { useNavigate, Navigate } from "react-router-dom";
+import React, { useEffect, useState } from 'react';
+import { useNavigate, Navigate } from 'react-router-dom';
 import StudentDashboardModal from "../components/admin/student_dashboard_modal";
 
 const AdminPanel = () => {

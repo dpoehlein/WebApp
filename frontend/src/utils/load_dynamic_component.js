@@ -1,35 +1,23 @@
 import React from "react";
 
-// Optional: kept here if used elsewhere
+// Convert "gray_code" → "GrayCode"
 const capitalize = (str) =>
-  str
-    .split("_")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join("");
-
-// Map "walkthrough" → "demo", "quiz" → "quiz_modal"
-const typeSuffixMap = {
-  walkthrough: "demo",
-  quiz: "quiz_modal",
-};
+    str
+        .split("_")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join("");
 
 // Load the dynamic component path
-const loadDynamicComponent = (
-  type,
-  topic_id,
-  subtopic_id,
-  nested_subtopic_id
-) => {
-  const suffix = typeSuffixMap[type];
-  if (!suffix) return null;
+const loadDynamicComponent = (type, topicId, subtopicId, nestedSubtopicId) => {
+    const base = `/src/components/${topicId}/${subtopicId}/${capitalize(nestedSubtopicId)}`;
+    const file =
+        type === "walkthrough" ? `${base}Demo.jsx` : `${base}_quiz_modal.jsx`;
 
-  const file = `/src/components/${topic_id}/${subtopic_id}/${nested_subtopic_id}_${suffix}.jsx`;
-
-  try {
-    return React.lazy(() => import(/* @vite-ignore */ file));
-  } catch {
-    return null;
-  }
+    try {
+        return React.lazy(() => import(/* @vite-ignore */ file));
+    } catch {
+        return null;
+    }
 };
 
 export default loadDynamicComponent;

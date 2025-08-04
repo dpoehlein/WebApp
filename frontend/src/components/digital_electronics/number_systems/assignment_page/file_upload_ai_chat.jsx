@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-export default function FileUploadAIChat() {
+function FileUploadAIChat() {
     const [file, setFile] = useState(null);
     const [feedback, setFeedback] = useState('');
     const [loading, setLoading] = useState(false);
@@ -19,7 +19,7 @@ export default function FileUploadAIChat() {
         try {
             const res = await fetch('http://localhost:8000/grade/number_systems', {
                 method: 'POST',
-                body: formData
+                body: formData,
             });
 
             const data = await res.json();
@@ -52,3 +52,5 @@ export default function FileUploadAIChat() {
         </div>
     );
 }
+
+export default FileUploadAIChat;

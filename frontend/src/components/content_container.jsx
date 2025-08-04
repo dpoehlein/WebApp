@@ -1,4 +1,4 @@
-// src/components/ContentContainer.jsx
+// src/components/content_container.jsx
 import React from "react";
 
 const ContentContainer = ({ children, className = "" }) => {

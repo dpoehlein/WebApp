@@ -2,10 +2,10 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import data from '../../../../../data/topics/digital_electronics/subtopics/number_systems/number_systems.json';
-import ContentContainer from '../../../../../components/ContentContainer';
-import Breadcrumb from '../../../../../components/Breadcrumb';
-import Footer from '../../../../../components/Footer';
-import Banner from '../../../../../components/Banner';
+import ContentContainer from '../../../../../components/content_container';
+import Breadcrumb from '../../../../../components/breadcrumb';
+import Footer from '../../../../../components/footer';
+import Banner from '../../../../../components/banner';
 import { FaCode, FaHashtag, FaListOl, FaProjectDiagram, FaCodeBranch } from 'react-icons/fa';
 
 const iconMap = {

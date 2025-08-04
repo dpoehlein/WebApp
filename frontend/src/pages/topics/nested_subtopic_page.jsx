@@ -7,15 +7,15 @@ import React, {
   useCallback,
 } from "react";
 import { useParams } from "react-router-dom";
-import ContentContainer from "../../components/content_container.jsx";
-import LearningCopilot from "../../components/learning_copilot.jsx";
-import Breadcrumb from "../../components/breadcrumb.jsx";
-import Footer from "../../components/footer.jsx";
-import Banner from "../../components/banner.jsx";
-import LearningObjectivesPanel from "../../components/learning_objectives.jsx";
-import learningObjectivesData from "../../data/ai/learning_objectives.js";
-import ErrorBoundary from "../../components/error_boundary.jsx";
-import loadDynamicComponent from "../../utils/load_dynamic_component.js";
+import ContentContainer from "../../components/content_container";
+import LearningCopilot from "../../components/learning_copilot";
+import Breadcrumb from "../../components/breadcrumb";
+import Footer from "../../components/footer";
+import Banner from "../../components/banner";
+import LearningObjectives from "../../components/learning_objectives";
+import learningObjectives from "../../data/ai/learning_objectives";
+import ErrorBoundary from "../../components/error_boundary";
+import loadDynamicComponent from "../../utils/load_dynamic_component";
 
 const NestedSubtopicPage = () => {
   const { topic_id, subtopic_id, nested_subtopic_id } = useParams();

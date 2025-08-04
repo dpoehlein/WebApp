@@ -1,5 +1,5 @@
 // src/components/digital_electronics/number_systems/binary_demo.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState } from 'react';
 
 const getRandomDecimal = () => Math.floor(Math.random() * (255 - 16 + 1)) + 16; // 16–255
 

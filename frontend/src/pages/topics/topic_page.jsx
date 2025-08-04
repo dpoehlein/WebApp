@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 
-import DynamicIcon from "../../components/dynamic_icon";
-import ContentContainer from "../../components/content_container";
-import Breadcrumb from "../../components/breadcrumb";
-import Footer from "../../components/footer";
-import Banner from "../../components/banner";
+import DynamicIcon from '../../components/dynamic_icon';
+import ContentContainer from '../../components/content_container';
+import Breadcrumb from '../../components/breadcrumb';
+import Footer from '../../components/footer';
+import Banner from '../../components/banner';
 
 const TopicPage = () => {
   const { topic_id } = useParams();
