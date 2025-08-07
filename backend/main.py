@@ -497,8 +497,15 @@ async def get_user_progress(student_id: str):
     results = []
     cursor = progress_collection.find({"student_id": student_id})
     async for doc in cursor:
-        doc["_id"] = str(doc["_id"])
-        results.append(doc)
+        formatted = {
+            "topic": doc.get("topic_id", "unknown"),
+            "subtopic": doc.get("subtopic_id", "unknown"),
+            "nested_subtopic": doc.get("nested_subtopic_id", "unknown"),
+            "quiz_score": doc.get("quiz_score", None),
+            "assignment_score": doc.get("assignment_score", None),
+            "updated_at": doc.get("updated_at")
+        }
+        results.append(formatted)
     return results
 
 @app.put("/reset-scores/{student_id}/{topic_id}/{subtopic_id}/{nested_subtopic_id}")
