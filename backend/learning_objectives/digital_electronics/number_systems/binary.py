@@ -2,7 +2,7 @@
 
 import re
 
-def evaluate_objectives(chat_history):
+def evaluate_objectives(message, chat_history):
     """
     Evaluates chat history to determine student progress toward binary learning objectives.
     Returns a list of flags: True (Completed), "progress" (Making Progress), False (Needs Work).

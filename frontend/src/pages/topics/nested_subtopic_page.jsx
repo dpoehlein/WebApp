@@ -13,7 +13,7 @@ import Breadcrumb from "../../components/breadcrumb";
 import Footer from "../../components/footer";
 import Banner from "../../components/banner";
 import LearningObjectives from "../../components/learning_objectives";
-import learningObjectives from "../../data/ai/learning_objectives";
+import learningObjectivesData from "../../data/ai/learning_objectives";
 import ErrorBoundary from "../../components/error_boundary";
 import loadDynamicComponent from "../../utils/load_dynamic_component";
 
@@ -255,7 +255,7 @@ const NestedSubtopicPage = () => {
                 <h2 className="text-lg font-semibold mb-2">
                   Learning Objectives
                 </h2>
-                <LearningObjectivesPanel
+                <LearningObjectives
                   objectives={objectives}
                   progress={objectiveProgress}
                 />

@@ -1,32 +1,51 @@
+// src/pages/topics/topic_page.jsx
+
 import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 
-import DynamicIcon from '../../components/dynamic_icon';
-import ContentContainer from '../../components/content_container';
-import Breadcrumb from '../../components/breadcrumb';
-import Footer from '../../components/footer';
-import Banner from '../../components/banner';
+import DynamicIcon from "../../components/dynamic_icon";
+import ContentContainer from "../../components/content_container";
+import Breadcrumb from "../../components/breadcrumb";
+import Footer from "../../components/footer";
+import Banner from "../../components/banner";
 
 const TopicPage = () => {
-  const { topic_id } = useParams();
+  const { topic_id } = useParams(); // Use snake_case route param
   const [topic, setTopic] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`/data/topics/${topic_id}/${topic_id}.json`)
-      .then((res) => res.json())
-      .then((data) => {
-        setTopic(data);
+    console.log("🔍 topic_id:", topic_id);
+    if (!topic_id) return;
+
+    const path = `/data/topics/${topic_id}/${topic_id}.json`;
+    console.log("📁 Fetching topic from:", path);
+
+    fetch(path)
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP error: ${res.status}`);
+        return res.text(); // Parse as raw text first
+      })
+      .then((text) => {
+        try {
+          const json = JSON.parse(text);
+          setTopic(json);
+        } catch (err) {
+          console.error("❌ Failed to parse JSON:", err);
+          console.log("📄 Response was:", text);
+        }
         setLoading(false);
       })
       .catch((err) => {
-        console.error("Error loading topic data:", err);
+        console.error("❗ Error loading topic data:", err);
         setTopic(null);
         setLoading(false);
       });
   }, [topic_id]);
 
-  if (loading) return <div className="p-8 text-gray-600">Loading...</div>;
+  if (loading) {
+    return <div className="p-8 text-gray-600">Loading...</div>;
+  }
 
   if (!topic) {
     return (
@@ -40,17 +59,21 @@ const TopicPage = () => {
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-100">
+      {/* ✅ Banner */}
       <Banner title={topic.title} background={bannerImage} />
 
+      {/* ✅ Breadcrumb (Home > Topic) */}
       <Breadcrumb
         paths={[{ label: "Home", to: "/" }, { label: topic.title }]}
       />
 
+      {/* ✅ Topic Content */}
       <main className="flex-1 w-full px-6 py-8">
         <ContentContainer>
           <p className="mb-6 text-gray-700 text-center text-2xl">
             {topic.description}
           </p>
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {topic.subtopics.map((sub) => (
               <Link
@@ -74,6 +97,7 @@ const TopicPage = () => {
         </ContentContainer>
       </main>
 
+      {/* ✅ Footer */}
       <Footer />
     </div>
   );

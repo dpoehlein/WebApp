@@ -125,6 +125,8 @@ async def get_progress(
         "nested_subtopic_id": nested_subtopic_id
     })
 
+    print("📁 Raw progress document from DB:", progress)
+
     if not progress:
         print("🔴 No progress found.")
         raise HTTPException(status_code=404, detail="Progress not found")
@@ -142,7 +144,6 @@ async def get_progress(
 
     topic_grade = progress.get("quiz_score", 0)
     print("✅ Merged Objective Progress:", merged_flags)
-    print("🏁 Topic Grade:", topic_grade)
 
     return {
         "objective_progress": merged_flags,
@@ -169,20 +170,34 @@ async def get_grades(student_id: str):
         results.append(grade)
     return results
 
-def load_objective_checker(topic_id: str, subtopic_id: Optional[str], nested_subtopic_id: Optional[str] = None):
-    if nested_subtopic_id:
-        nested_path = f"backend/learning_objectives/{topic_id}/{subtopic_id}/{nested_subtopic_id}.py"
-        abs_nested_path = os.path.join(os.path.dirname(__file__), nested_path)
-        if os.path.exists(abs_nested_path):
+def load_objective_checker(topic_id: str, subtopic_id: Optional[str] = None, nested_subtopic_id: Optional[str] = None):
+    base_path = os.path.join(os.path.dirname(__file__), "learning_objectives")
+
+    paths_to_try = []
+
+    # 1. Most specific: topic/subtopic/nested_subtopic
+    if nested_subtopic_id and subtopic_id:
+        paths_to_try.append(os.path.join(base_path, topic_id, subtopic_id, f"{nested_subtopic_id}.py"))
+
+    # 2. Fallback to topic/subtopic.py
+    if subtopic_id:
+        paths_to_try.append(os.path.join(base_path, topic_id, f"{subtopic_id}.py"))
+
+    # 3. Fallback to topic.py
+    paths_to_try.append(os.path.join(base_path, f"{topic_id}.py"))
+
+    for path in paths_to_try:
+        if os.path.exists(path):
             try:
-                spec = importlib.util.spec_from_file_location("objectives", abs_nested_path)
+                spec = importlib.util.spec_from_file_location("objective_checker", path)
                 module = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(module)
+                print(f"✅ Loaded objective checker from: {abs_nested_path}")
                 return getattr(module, "evaluate_objectives", None)
             except Exception as e:
-                print(f"❌ Error loading nested objective checker: {e}")
+                print(f"❌ Failed to load objective checker from {path}: {e}")
 
-    # fallback
+    print(f"⚠️ Objective checker not found for: {topic_id} / {subtopic_id} / {nested_subtopic_id}")
     return None
 
 def load_nested_chat_evaluator(topic_id: str, subtopic_id: str):
@@ -207,9 +222,6 @@ def load_nested_chat_evaluator(topic_id: str, subtopic_id: str):
 
 @app.post("/chat") 
 async def chat(request: ChatRequest):
-    print(f"📥 Received chat request: topic_id={request.topic_id}, subtopic_id={request.subtopic_id}, nested_subtopic_id={request.nested_subtopic_id}")
-    print(f"📝 Chat message: {request.message}")
-
     try:
         # ---- Prompt Setup ----
         prompts = SUBTOPIC_AI_PROMPTS.get(
@@ -240,7 +252,6 @@ async def chat(request: ChatRequest):
         )
 
         reply = response.choices[0].message.content.strip()
-        print("🤖 AI Reply:", reply)
 
         # ---- Evaluate Progress ----
         progress_flags = []
@@ -257,8 +268,8 @@ async def chat(request: ChatRequest):
 
         if get_objective_state:
             progress_flags = get_objective_state(chat_with_latest)
+            print(f"📊 Evaluated progress flags: {progress_flags}")
         else:
-            print(f"⚠️ No objective checker found for {request.topic_id}/{request.subtopic_id}")
             progress_flags = []
 
         # ---- Load Stored Progress ----
@@ -288,16 +299,11 @@ async def chat(request: ChatRequest):
                 else:
                     merged_progress.append(False)
             progress_flags = merged_progress
-        else:
-            print(f"⚠️ Flag length mismatch — stored: {len(stored_progress)}, new: {len(progress_flags)}")
 
         # ---- Grade Calculation from Progress ----
         total = len(progress_flags)
         completed = sum(1 if p is True else 0.5 if p == "progress" else 0 for p in progress_flags)
         topic_grade = round((completed / total) * 100) if total else 0
-
-        print("📬 Final Progress Flags:", progress_flags)
-        print("📈 Topic Grade from Progress:", topic_grade)
 
         # ---- Optional: Completion Message ----
         ready_prompt = None
@@ -317,8 +323,6 @@ async def chat(request: ChatRequest):
             ai_objective_progress=progress_flags
         )
         await save_progress(save_payload)
-
-        print("🧠 Returning AI progress flags from /chat:", progress_flags)
 
         # ---- Response ----
         return {
@@ -438,59 +442,73 @@ class SaveProgressRequest(BaseModel):
 
 @app.post("/save-progress")
 async def save_progress(payload: SaveProgressRequest):
+    if not all([payload.student_id, payload.topic_id, payload.subtopic_id, payload.nested_subtopic_id]):
+        return JSONResponse(status_code=400, content={"error": "Missing required identifiers"})
+
+    topic_id = payload.topic_id.lower().strip()
+    subtopic_id = payload.subtopic_id.lower().strip()
+    nested_subtopic_id = payload.nested_subtopic_id.lower().strip()
+
     query = {
         "student_id": payload.student_id,
-        "topic_id": payload.topic_id,
-        "subtopic_id": payload.subtopic_id,
-        "nested_subtopic_id": payload.nested_subtopic_id,
+        "topic_id": topic_id,
+        "subtopic_id": subtopic_id,
+        "nested_subtopic_id": nested_subtopic_id,
     }
 
-    # Fetch existing progress record (if any)
     existing = await progress_collection.find_one(query)
 
-    # Extract existing values or use defaults
     existing_ai = existing.get("ai_objective_progress", []) if existing else []
     existing_quiz = existing.get("quiz_objective_progress", []) if existing else []
 
-    # Use payload values if provided, otherwise fall back to existing
+    def merge_progress(existing, new):
+        length = max(len(existing), len(new))
+        merged = []
+        for i in range(length):
+            e = existing[i] if i < len(existing) else False
+            n = new[i] if i < len(new) else False
+            if e is True or n is True:
+                merged.append(True)
+            elif e == "progress" or n == "progress":
+                merged.append("progress")
+            else:
+                merged.append(False)
+        return merged
+
     new_ai = payload.ai_objective_progress or existing_ai
     new_quiz = payload.quiz_objective_progress or existing_quiz
 
-    # Ensure both lists are the same length
-    max_len = max(len(new_ai), len(new_quiz))
-    padded_ai = new_ai + [False] * (max_len - len(new_ai))
-    padded_quiz = new_quiz + [False] * (max_len - len(new_quiz))
-    merged_flags = [a or q for a, q in zip(padded_ai, padded_quiz)]
+    merged_ai = merge_progress(existing_ai, new_ai)
+    merged_quiz = merge_progress(existing_quiz, new_quiz)
 
-    # Scores (fallbacks if None or not in payload)
-    quiz_score = payload.quiz_score if payload.quiz_score is not None else (existing.get("quiz_score", 0) if existing else 0)
-    assignment_score = payload.assignment_score if payload.assignment_score is not None else (existing.get("assignment_score", 0) if existing else 0)
-    topic_grade = quiz_score  # Only use quiz_score to determine topic_grade
+    # Final combination: either AI or quiz can complete an objective
+    final_combined_progress = merge_progress(merged_ai, merged_quiz)
 
+    # Calculate topic grade
+    def calc_grade(flags):
+        total = len(flags)
+        if total == 0:
+            return 0
+        completed = sum(1 for f in flags if f is True)
+        return int((completed / total) * 100)
+
+    topic_grade = calc_grade(final_combined_progress)
+
+    # Build document to update
     update_doc = {
         "$set": {
-            "student_id": payload.student_id,
-            "topic_id": payload.topic_id,
-            "subtopic_id": payload.subtopic_id,
-            "nested_subtopic_id": payload.nested_subtopic_id,
-            "quiz_score": quiz_score,
-            "assignment_score": assignment_score,
+            "ai_objective_progress": merged_ai,
+            "quiz_objective_progress": merged_quiz,
             "topic_grade": topic_grade,
-            "activity_id": payload.activity_id if payload.activity_id is not None else (existing.get("activity_id") if existing else None),
-            "quiz_objective_progress": new_quiz,
-            "ai_objective_progress": new_ai,
-            "objective_progress": merged_flags,
-            "updated_at": datetime.utcnow(),
         }
     }
 
+    if payload.quiz_score is not None:
+        update_doc["$set"]["quiz_score"] = payload.quiz_score
+
     await progress_collection.update_one(query, update_doc, upsert=True)
 
-    return JSONResponse(content={
-        "message": "Progress saved successfully.",
-        "topic_grade": topic_grade,
-        "objective_progress": merged_flags
-    })
+    return {"status": "✅ Progress updated", "topic_grade": topic_grade}
 
 @app.get("/progress-all/{student_id}")
 async def get_user_progress(student_id: str):

@@ -12,7 +12,7 @@ def load_objective_checker(topic_id, subtopic_id=None, nested_subtopic_id=None):
             filepath = os.path.join("backend", "learning_objectives", f"{topic_id}.py")
 
         if not os.path.exists(filepath):
-            print(f"⚠️ Objective checker not found at: {filepath}")
+           
             return None
 
         # Load the module dynamically
@@ -22,5 +22,5 @@ def load_objective_checker(topic_id, subtopic_id=None, nested_subtopic_id=None):
 
         return module.evaluate_objectives
     except Exception as e:
-        print(f"❌ Failed to load objective checker: {e}")
+        
         return None

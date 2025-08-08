@@ -1,24 +1,32 @@
 // src/pages/topics/subtopic_page.jsx
-import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import ContentContainer from '../../components/content_container';
-import Breadcrumb from '../../components/breadcrumb';
-import Footer from '../../components/footer';
-import Banner from '../../components/banner';
-import NestedSubtopicCard from '../../components/nested_subtopic_card';
+import React, { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
+import ContentContainer from "../../components/content_container";
+import Breadcrumb from "../../components/breadcrumb";
+import Footer from "../../components/footer";
+import Banner from "../../components/banner";
+import NestedSubtopicCard from "../../components/nested_subtopic_card";
 
 const SubtopicPage = () => {
   const { topic_id, subtopic_id } = useParams();
   const [subtopicData, setSubtopicData] = useState(null);
 
   useEffect(() => {
+    console.log("🟡 Fetching subtopic:", subtopic_id);
+
     fetch(
       `/data/topics/${topic_id}/subtopics/${subtopic_id}/${subtopic_id}.json`
     )
-      .then((res) => res.json())
-      .then((data) => setSubtopicData(data))
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP error: ${res.status}`);
+        return res.json();
+      })
+      .then((data) => {
+        console.log("✅ Subtopic data loaded:", data);
+        setSubtopicData(data);
+      })
       .catch((err) => {
-        console.error("Error loading subtopic:", err);
+        console.error("❌ Error loading subtopic:", err);
         setSubtopicData(null);
       });
   }, [topic_id, subtopic_id]);
@@ -78,7 +86,7 @@ const SubtopicPage = () => {
                     description={sub.description}
                     parentId={subtopic_id}
                     topicId={topic_id}
-                    icon={sub.icon} // Assuming each subtopic has an icon property
+                    icon={sub.icon}
                   />
                 ))}
               </div>
@@ -97,7 +105,9 @@ const SubtopicPage = () => {
                     <p className="text-gray-600 text-sm">{link.description}</p>
                     <button
                       onClick={() =>
-                        (window.location.href = `/assignments/${subtopicId}`)
+                        (window.location.href = `/assignments/${topic_id}/${subtopic_id}/${
+                          link.nested_subtopic_id || "binary"
+                        }`)
                       }
                       className="mt-2 inline-block bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 rounded"
                     >
